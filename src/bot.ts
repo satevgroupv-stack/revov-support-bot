@@ -23,7 +23,9 @@ if (ADMIN_CHAT_IDS.length === 0) {
 }
 
 // ---------- Active admins ----------
-let activeAdmins: Set<number> = new Set();
+// FIX: Auto‑register all admins from the environment variable on startup
+let activeAdmins: Set<number> = new Set(ADMIN_CHAT_IDS);
+console.log(`✅ Auto‑registered ${activeAdmins.size} admin(s): ${Array.from(activeAdmins).join(", ")}`);
 
 // ---------- Session state ----------
 type FlowStep = 
@@ -80,7 +82,7 @@ Then use the main menu buttons:
 • 🤖 Order a Drink – Visit our order page
 
 👑 *Admin Commands* (only for authorised admins)
-/adminstart – Register to receive user messages
+/adminstart – Register to receive user messages (auto‑registered on startup, but you can re‑register)
 /adminlist – See which admins are active
 /reply <user_id> <message> – Send a private reply to a user
 /resolve <user_id> – Send a resolution message to a user
@@ -117,7 +119,7 @@ Then use the main menu buttons:
 • 🤖 መጠጥ ለማዘዝ – የማዘዣ ገጻችንን ይጎብኙ
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
-/adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
+/adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ (በራስ ተመዝግበዋል ነገር ግን እንደገና መመዝገብ ይችላሉ)
 /adminlist – active አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
 /resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
@@ -138,6 +140,13 @@ async function forwardToAdmins(
   if (!user) return;
   const msg = ctx.message;
   if (!msg) return;
+
+  // If no active admins, log and notify the user
+  if (activeAdmins.size === 0) {
+    console.error("⚠️ No active admins – cannot forward message");
+    await ctx.reply("⚠️ Support is currently unavailable. Please try again later.").catch(console.error);
+    return;
+  }
 
   let metadata = `📢 NEW ${category}\n\n`;
   metadata += `👤 User: ${user.first_name} ${user.last_name || ""} (@${user.username || "N/A"})\n`;
@@ -196,8 +205,10 @@ async function forwardToAdmins(
   }
 }
 
-// ---------- Remind inactive admins ----------
+// ---------- Remind inactive admins (optional, now all are auto-registered) ----------
 async function remindInactiveAdmins() {
+  // Since all admins are auto-registered, this function is less needed.
+  // You can still use it to ping admins who might have blocked the bot.
   for (const adminId of ADMIN_CHAT_IDS) {
     if (!activeAdmins.has(adminId)) {
       try {
@@ -375,7 +386,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (FIXED: media is now forwarded) ----------
+// ---------- Generic message handler (forwards everything) ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -398,40 +409,25 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "tech_description") {
     const msg = ctx.message;
     let description = "";
-    let isMedia = false;
 
-    // Detect if the user sent media (photo, voice, video, document)
     if ('text' in msg && msg.text) {
       description = msg.text;
-      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       description = msg.caption;
-      isMedia = true;
     } else if ('photo' in msg) {
       description = "📷 Photo (see below)";
-      isMedia = true;
     } else if ('voice' in msg) {
       description = "🎤 Voice message";
-      isMedia = true;
     } else if ('video' in msg) {
       description = "🎥 Video";
-      isMedia = true;
     } else if ('document' in msg) {
       description = "📄 Document";
-      isMedia = true;
     } else {
       description = "[Unsupported media type]";
-      isMedia = true;
     }
 
-    // Store the descriptive label for later (phone step)
     ctx.session.tempData.description = description;
-
-    // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
-    // For text, forwardToAdmins will skip adding description to metadata to avoid duplication.
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
-
-    // Move to phone step
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
@@ -448,7 +444,6 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward ONLY metadata (with phone number) – the media/text was already sent
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
       description: ctx.session.tempData.description,
       phone: phone,
@@ -464,36 +459,25 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "comment_text") {
     const msg = ctx.message;
     let commentText = "";
-    let isMedia = false;
 
     if ('text' in msg && msg.text) {
       commentText = msg.text;
-      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       commentText = msg.caption;
-      isMedia = true;
     } else if ('photo' in msg) {
       commentText = "📷 Photo (see below)";
-      isMedia = true;
     } else if ('voice' in msg) {
       commentText = "🎤 Voice message";
-      isMedia = true;
     } else if ('video' in msg) {
       commentText = "🎥 Video";
-      isMedia = true;
     } else if ('document' in msg) {
       commentText = "📄 Document";
-      isMedia = true;
     } else {
       commentText = "[Unsupported media type]";
-      isMedia = true;
     }
 
     ctx.session.tempData.commentText = commentText;
-
-    // Forward the actual comment (text or media) to admins NOW
     await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
-
     ctx.session.flowStep = "comment_phone";
     await ctx.reply(t.commentAskPhone);
     return;
@@ -510,7 +494,6 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
-    // Forward ONLY metadata with phone (comment already sent)
     await forwardToAdmins(ctx, "COMMENT", {
       commentText: ctx.session.tempData.commentText,
       phone: phone,
