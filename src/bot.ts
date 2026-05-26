@@ -52,7 +52,7 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: `*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ *`,
+    welcome: `*Welcome to RevoV Vending Machine Support! Please choose your language:\n እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ*`,
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
@@ -91,7 +91,7 @@ Then use the main menu buttons:
     mainMenu: "ዋና ማውጫ – ምን ማድረግ ይፈልጋሉ?",
     mainMenuComment: "💬 አስተያየት ይላኩን",
     mainMenuTech: "🛠 ቴክኒካል ችግር ለማመልከት",
-    mainMenuOrder: "🤖 መጠጥ ያዝዙ",
+    mainMenuOrder: "🤖 መጠጥ ለማዘዝ",
     techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ መጠቀም ይችላሉ)፦",
     techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
     commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
