@@ -1,5 +1,3 @@
-
-Fix double sending issue in bot
 import { Telegraf, session, Context } from "telegraf";
 import { message } from "telegraf/filters";
 import express from "express";
@@ -53,7 +51,8 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:*\n*እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ*",
+    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
+    welcome: `Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ*`,
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
@@ -62,8 +61,8 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     techAskPhone: "📞 Please share your phone number so we can contact you:",
     commentAskText: "💬 Please send your comment (text, photo, voice, or video):",
     commentAskPhone: "📞 Please share your phone number (optional). Type 'skip' to skip:",
-    thanksTech: `✅ Thank you! Your technical issue has been forwarded to our support team. \nJoin The channel @Satev_Group #SATEV`,
-    thanksComment: `✅ Thank you! Your comment has been forwarded to our support team. \nJoin The channel @Satev_Group #SATEV`,
+    thanksTech: "✅ Thank you! Your technical issue has been forwarded to our support team.",
+    thanksComment: "✅ Thank you! Your comment has been forwarded to our support team.",
     followUpConfirm: "📨 Your follow‑up message has been sent to the support team.",
     invalidInput: "❌ Invalid input. Please try again.",
     skipPhone: "⏭️ Phone number skipped.",
@@ -90,17 +89,17 @@ Then use the main menu buttons:
 💡 *Tip*: As an admin, you can also reply directly to any forwarded user message – the bot will automatically send your reply to that user.`,
   },
   am: {
-    welcome: "*እንኳን ወደ RevoV ራስ-ሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦*\n*Welcome to RevoV Vending Machine Support! Please choose your language:*",
+    welcome: "እንኳን ወደ RevoV ራስ-ሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
     mainMenu: "ዋና ማውጫ – ምን ማድረግ ይፈልጋሉ?",
     mainMenuComment: "💬 አስተያየት ይላኩን",
     mainMenuTech: "🛠 ቴክኒካል ችግር ለማመልከት",
-    mainMenuOrder: "🤖 መጠጥ ለማዝዙ",
+    mainMenuOrder: "🤖 መጠጥ ያዝዙ",
     techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ መጠቀም ይችላሉ)፦",
     techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
     commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
     commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
-    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል። \nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV",
-    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።\nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV",
+    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
+    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።",
     followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
     invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
     skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
@@ -120,9 +119,11 @@ Then use the main menu buttons:
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
 /adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
-/adminlist – active አስተዳዳሪዎችን ይመልከቱ
+/adminlist – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
-/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
+/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ
+
+💡 *ምክር*: እንደ አስተዳዳሪ፣ ለእርስዎ በተላከ ማንኛውም የተጠቃሚ መልእክት በቀጥታ መልስ መስጠት ይችላሉ – ቦቱ ምላሽዎን ለዚያ ተጠቃሚ በራስ-ሰር ይልካል።`
   },
 };
 
@@ -143,53 +144,49 @@ async function forwardToAdmins(
 
   let metadata = `📢 NEW ${category}\n\n`;
   metadata += `👤 User: ${user.first_name} ${user.last_name || ""} (@${user.username || "N/A"})\n`;
-  metadata += `🆔 ID: \`${user.id}\`\n`;
+  metadata += `🆔 ID: ${user.id}\n`;
   metadata += `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n`;
   metadata += `🕒 Time: ${new Date().toISOString()}\n\n`;
 
-  // For text messages, if we are including the original message, skip adding description/commentText to metadata to avoid duplication.
-  const isTextMessage = 'text' in msg && msg.text;
-  if (!(includeOriginalMessage && isTextMessage)) {
-    if (extraInfo.description) metadata += `📝 Issue Description: ${extraInfo.description}\n`;
-    if (extraInfo.commentText) metadata += `💬 Comment: ${extraInfo.commentText}\n`;
-  }
+  if (extraInfo.description) metadata += `📝 Issue Description: ${extraInfo.description}\n`;
+  if (extraInfo.commentText) metadata += `💬 Comment: ${extraInfo.commentText}\n`;
   if (extraInfo.phone) metadata += `📞 Phone: ${extraInfo.phone}\n`;
 
   // Append hashtag for filtering
-  if (category === "TECHNICAL_ISSUE") metadata += "\n#issue #SATEV";
-  else if (category === "COMMENT") metadata += "\n#comment #SATEV";
+  if (category === "TECHNICAL_ISSUE") metadata += "\n#issue";
+  else if (category === "COMMENT") metadata += "\n#comment";
 
   for (const adminId of activeAdmins) {
     try {
       if (!includeOriginalMessage) {
         // Send only metadata (e.g., for phone number step)
-        const sent = await ctx.telegram.sendMessage(adminId, metadata, { parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendMessage(adminId, metadata);
         replyMapping.set(sent.message_id, user.id);
-      } else if (isTextMessage) {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n" + msg.text, { parse_mode: "Markdown" });
+      } else if ('text' in msg && msg.text) {
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n" + msg.text);
         replyMapping.set(sent.message_id, user.id);
       } else if ('photo' in msg && msg.photo) {
         const photo = msg.photo[msg.photo.length - 1];
         const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption, parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else if ('voice' in msg && msg.voice) {
-        const sent = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata, parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata });
         replyMapping.set(sent.message_id, user.id);
         if (msg.caption) {
-          const sentCap = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${msg.caption}`, { parse_mode: "Markdown" });
+          const sentCap = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${msg.caption}`);
           replyMapping.set(sentCap.message_id, user.id);
         }
       } else if ('video' in msg && msg.video) {
         const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption, parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else if ('document' in msg && msg.document) {
         const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption, parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\nUnsupported message type", { parse_mode: "Markdown" });
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\nUnsupported message type");
         replyMapping.set(sent.message_id, user.id);
       }
     } catch (err) {
@@ -203,7 +200,7 @@ async function remindInactiveAdmins() {
   for (const adminId of ADMIN_CHAT_IDS) {
     if (!activeAdmins.has(adminId)) {
       try {
-        await bot.telegram.sendMessage(adminId, texts.en.adminReminder, { parse_mode: "Markdown" });
+        await bot.telegram.sendMessage(adminId, texts.en.adminReminder);
       } catch (err) {
         console.error(`Could not send reminder to admin ${adminId}:`, err);
       }
@@ -213,10 +210,10 @@ async function remindInactiveAdmins() {
 
 // ---------- Notify admins when a reply is sent ----------
 async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: string, targetUserId: number, messageText: string) {
-  const notification = `📨 ADMIN REPLY SENT\n\n👤 Admin: ${replyingAdminName} (ID: \`${replyingAdminId}\`)\n👤 To User ID: \`${targetUserId}\`\n📝 Message: ${messageText}\n🕒 Sent at: ${new Date().toISOString()}`;
+  const notification = `📨 ADMIN REPLY SENT\n\n👤 Admin: ${replyingAdminName} (ID: ${replyingAdminId})\n👤 To User ID: ${targetUserId}\n📝 Message: ${messageText}\n🕒 Sent at: ${new Date().toISOString()}`;
   for (const adminId of activeAdmins) {
     try {
-      await bot.telegram.sendMessage(adminId, notification, { parse_mode: "Markdown" });
+      await bot.telegram.sendMessage(adminId, notification);
     } catch (err) {
       console.error(`Failed to send reply notification to admin ${adminId}:`, err);
     }
@@ -265,8 +262,7 @@ bot.command("adminstart", async (ctx) => {
 
 bot.command("adminlist", async (ctx) => {
   if (!ADMIN_CHAT_IDS.includes(ctx.from.id)) return ctx.reply("❌ Unauthorized.");
-  const adminList = Array.from(activeAdmins).map(id => `\`${id}\``).join(", ");
-  await ctx.reply(`Active admins: ${adminList || "none"}`, { parse_mode: "Markdown" });
+  await ctx.reply(`Active admins: ${Array.from(activeAdmins).join(", ") || "none"}`);
 });
 
 bot.command("reply", async (ctx) => {
@@ -280,7 +276,7 @@ bot.command("reply", async (ctx) => {
   if (!replyMsg.trim()) return ctx.reply("❌ Message empty.");
   try {
     await ctx.telegram.sendMessage(targetUserId, replyMsg);
-    await ctx.reply(`✅ Sent to user \`${targetUserId}\``, { parse_mode: "Markdown" });
+    await ctx.reply(`✅ Sent to user ${targetUserId}`);
     const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
     await notifyAdminsOfReply(ctx.from.id, adminName, targetUserId, replyMsg);
   } catch (err) {
@@ -298,7 +294,7 @@ bot.command("resolve", async (ctx) => {
   const resolutionText = texts[ctx.session.language].resolutionMsg;
   try {
     await ctx.telegram.sendMessage(targetUserId, resolutionText);
-    await ctx.reply(`✅ Resolution sent to user \`${targetUserId}\``, { parse_mode: "Markdown" });
+    await ctx.reply(`✅ Resolution sent to user ${targetUserId}`);
     const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
     await notifyAdminsOfReply(ctx.from.id, adminName, targetUserId, resolutionText);
   } catch (err) {
@@ -312,7 +308,6 @@ bot.start(async (ctx) => {
   ctx.session.flowStep = null;
   ctx.session.tempData = {};
   await ctx.reply(texts.en.welcome, {
-    parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
         [{ text: "🇬🇧 English", callback_data: "lang_en" }],
@@ -361,7 +356,7 @@ bot.on(message("text"), async (ctx, next) => {
         const replyText = ctx.message.text;
         try {
           await ctx.telegram.sendMessage(userId, replyText);
-          await ctx.reply(`✅ Reply sent to user \`${userId}\``, { parse_mode: "Markdown" });
+          await ctx.reply(`✅ Reply sent to user ${userId}`);
           const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
           await notifyAdminsOfReply(ctx.from.id, adminName, userId, replyText);
         } catch (err) {
@@ -430,8 +425,13 @@ async function handleUserMessage(ctx: MyContext) {
     ctx.session.tempData.description = description;
 
     // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
-    // For text, forwardToAdmins will skip adding description to metadata to avoid duplication.
-    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
+    if (isMedia || ('text' in msg && msg.text)) {
+      // Include the original message (photo, voice, video, or text) along with metadata
+      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
+    } else {
+      // Fallback (should not happen)
+      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
+    }
 
     // Move to phone step
     ctx.session.flowStep = "tech_phone";
@@ -494,7 +494,11 @@ async function handleUserMessage(ctx: MyContext) {
     ctx.session.tempData.commentText = commentText;
 
     // Forward the actual comment (text or media) to admins NOW
-    await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
+    if (isMedia || ('text' in msg && msg.text)) {
+      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
+    } else {
+      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
+    }
 
     ctx.session.flowStep = "comment_phone";
     await ctx.reply(t.commentAskPhone);
