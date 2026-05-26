@@ -51,7 +51,7 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: "Welcome to RevoV Vending Machine Support! Please choose your language:",
+    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:\n እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
@@ -70,28 +70,60 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     adminAlready: "ℹ️ You are already an active admin.",
     adminReminder: "🔔 Admin reminder: please send /admin_start to this bot to start receiving user messages.",
     resolutionMsg: "✅ Your issue has been resolved. Thank you for using RevoV!",
+    help: `ℹ️ *Available Commands*
+
+👤 *User Commands*
+/start – Restart the bot and choose language
+Then use the main menu buttons:
+• 💬 Send a Comment – Share feedback or questions
+• 🛠 Report Technical Issue – Describe a problem (we'll ask for your phone)
+• 🤖 Order a Drink – Visit our order page
+
+👑 *Admin Commands* (only for authorised admins)
+/admin_start – Register to receive user messages
+/admin_list – See which admins are active
+/reply <user_id> <message> – Send a private reply to a user
+/resolve <user_id> – Send a resolution message to a user
+
+💡 *Tip*: As an admin, you can also reply directly to any forwarded user message – the bot will automatically send your reply to that user.`,
   },
-  am: {
-    welcome: "እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
-    mainMenu: "ዋና ምናሌ – ምን ማድረግ ይፈልጋሉ?",
-    mainMenuComment: "💬 አስተያየት ይላኩ",
-    mainMenuTech: "🛠 ቴክኒካል ችግር ያመልክቱ",
-    mainMenuOrder: "🤖 መጠጥ ያዝዙ",
-    techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
-    techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
-    commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
-    commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (አማራጭ ነው)። 'skip' ብለው መልስ መስጠት ይችላሉ፦",
-    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
-    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።",
-    followUpConfirm: "📨 ክትትልዎ ተልኳል።",
-    invalidInput: "❌ ልክ ያልሆነ ግብአት። እባክዎ እንደገና ይሞክሩ።",
-    skipPhone: "⏭️ ስልክ ቁጥር ተዘልሏል።",
-    error: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
-    adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ መልእክቶች ይቀበላሉ።",
-    adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ነዎት።",
-    adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ መልእክቶችን መቀበል ለመጀመር እባክዎ /admin_start ይላኩ።",
-    resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
-  },
+am: {
+  welcome: "እንኳን ወደ RevoV ራስ-ሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
+  mainMenu: "ዋና ማውጫ – ምን ማድረግ ይፈልጋሉ?",
+  mainMenuComment: "💬 አስተያየት ይላኩን",
+  mainMenuTech: "🛠 ቴክኒካል ችግር ለማመልከት",
+  mainMenuOrder: "🤖 መጠጥ ያዝዙ",
+  techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ መጠቀም ይችላሉ)፦",
+  techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
+  commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
+  commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
+  thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
+  thanksComment: "*✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።*",
+  followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
+  invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
+  skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
+  error: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
+  adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ መልእክቶች ይቀበላሉ።",
+  adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ኖት።",
+  adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ መልእክቶችን መቀበል ለመጀመር እባክዎ /admin_start ይላኩ።",
+  resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
+  help: `ℹ️ *በዚህ ቦት የሚገኙ ትዕዛዞች*
+
+👤 *የተጠቃሚ ትዕዛዞች*
+/start – ቦቱን እንደገና ይጀምሩ እና ቋንቋ ይምረጡ
+ከዚያ በዋና ምናሌው ውስጥ ያሉትን አዝራሮች ይጠቀሙ፦
+• 💬 አስተያየት ይላኩ – አስተያየት ወይም ጥያቄ ያጋሩ
+• 🛠 ቴክኒካል ችግር ያመልክቱ – ችግሩን ይግለጹ (ስልክ ቁጥር እንጠይቃለን)
+• 🤖 መጠጥ ያዝዙ – የማዘዣ ገጻችንን ይጎብኙ
+
+👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
+/admin_start – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
+/admin_list – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
+/reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
+/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ
+
+💡 *ምክር*: እንደ አስተዳዳሪ፣ ለእርስዎ በተላከ ማንኛውም የተጠቃሚ መልእክት በቀጥታ መልስ መስጠት ይችላሉ – ቦቱ ምላሽዎን ለዚያ ተጠቃሚ በራስ-ሰር ይልካል።`
+},
 };
 
 const replyMapping = new Map<number, number>();
@@ -201,6 +233,13 @@ bot.use(session({
     tempData: {},
   }),
 }));
+
+// ---------- Help command ----------
+bot.command("help", async (ctx) => {
+  const lang = ctx.session.language;
+  const t = texts[lang];
+  await ctx.reply(t.help, { parse_mode: "Markdown" });
+});
 
 // ---------- Admin commands ----------
 bot.command("admin_start", async (ctx) => {
