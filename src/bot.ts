@@ -12,10 +12,9 @@ if (!BOT_TOKEN || !SUPPORT_GROUP_ID) {
 
 // ---------- Conversation state ----------
 interface SessionData {
-  step: "language" | "description" | "timeDay" | "phone" | "done";
+  step: "language" | "description" | "phone" | "done";
   language: "en" | "am";
   phone: string;
-  timeDay: string;
   description: string;
   issueCategory?: string;
 }
@@ -32,7 +31,6 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     welcome:
       "Welcome to RevoV Vending Machine Support! Please choose your language / እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ:",
     askDescription: "Please describe the problem in detail:",
-    askTimeDay: "What time and day did the issue happen? (e.g., Today at 3 PM)",
     askPhone: "Please share your phone number:",
     thanks: "Thank you! Your issue has been logged. Our team will review it.",
     instantFix_paymentFailed:
@@ -48,7 +46,6 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     welcome:
       "Welcome to RevoV Vending Machine Support! Please choose your language / እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ:",
     askDescription: "እባክዎ ችግሩን በዝርዝር ይግለጹ፦",
-    askTimeDay: "ችግሩ የደረሰበት ቀን እና ሰዓት ምንድነው? (ለምሳሌ፦ ዛሬ ከሰዓት 3)፦",
     askPhone: "እባክዎ ስልክ ቁጥርዎን ያጋሩ፦",
     thanks: "እናመሰግናለን! ችግርዎ ተመዝግቧል። ቡድናችን ይገመግማል።",
     instantFix_paymentFailed:
@@ -60,7 +57,7 @@ const texts: Record<LanguageKey, Record<string, string>> = {
   },
 };
 
-// ---------- Issue classification (product removed) ----------
+// ---------- Issue classification ----------
 function classifyIssue(description: string): string {
   const lowerDesc = description.toLowerCase();
   if (
@@ -103,7 +100,7 @@ function classifyIssue(description: string): string {
   return "other";
 }
 
-// ---------- Forward to support group (product removed) ----------
+// ---------- Forward to support group ----------
 async function forwardToSupportGroup(
   ctx: MyContext,
   category: string,
@@ -113,7 +110,6 @@ async function forwardToSupportGroup(
 📢 NEW ISSUE REPORT
 Time of report: ${new Date().toISOString()}
 User phone: ${ctx.session.phone}
-Issue day/time (user said): ${ctx.session.timeDay}
 Category: ${category}
 Description: ${ctx.session.description}
 Instant fix given: ${instantFixGiven ? "yes" : "no"}
@@ -136,7 +132,6 @@ bot.use(
       step: "language",
       language: "en",
       phone: "",
-      timeDay: "",
       description: "",
     }),
   }),
@@ -164,7 +159,7 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// Text handler (new order: description → timeDay → phone → done)
+// Text handler (new order: description → phone → done)
 bot.on(message("text"), async (ctx) => {
   const step = ctx.session.step;
   const lang = ctx.session.language;
@@ -187,11 +182,6 @@ bot.on(message("text"), async (ctx) => {
   switch (step) {
     case "description":
       ctx.session.description = input;
-      ctx.session.step = "timeDay";
-      await ctx.reply(t.askTimeDay);
-      break;
-    case "timeDay":
-      ctx.session.timeDay = input;
       ctx.session.step = "phone";
       await ctx.reply(t.askPhone);
       break;
