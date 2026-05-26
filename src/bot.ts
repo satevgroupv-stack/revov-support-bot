@@ -1,5 +1,6 @@
 import { Telegraf, session, Context } from "telegraf";
 import { message } from "telegraf/filters";
+import express from "express";
 
 // ---------- Environment variables ----------
 const BOT_TOKEN = process.env.BOT_TOKEN!;
@@ -9,7 +10,7 @@ if (!BOT_TOKEN || !SUPPORT_GROUP_ID) {
   throw new Error("Missing BOT_TOKEN or SUPPORT_GROUP_ID in environment");
 }
 
-// ---------- Conversation state (MUST be defined BEFORE using it) ----------
+// ---------- Conversation state ----------
 interface SessionData {
   step: "language" | "phone" | "timeDay" | "product" | "description" | "done";
   language: "en" | "am";
@@ -24,9 +25,8 @@ interface MyContext extends Context {
   session: SessionData;
 }
 
-// ---------- Language texts with proper TypeScript typing ----------
+// ---------- Language texts ----------
 type LanguageKey = "en" | "am";
-type TextKey = keyof typeof texts.en;
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
@@ -130,7 +130,7 @@ Language: ${ctx.session.language === "en" ? "English" : "Amharic"}
   }
 }
 
-// ---------- Bot initialization (MUST be AFTER SessionData and MyContext are defined) ----------
+// ---------- Bot initialization ----------
 const bot = new Telegraf<MyContext>(BOT_TOKEN);
 
 bot.use(
@@ -262,7 +262,37 @@ bot.catch((err, ctx) => {
   ctx.reply("An error occurred. Please try again later.").catch(console.error);
 });
 
-bot.launch();
-console.log("RevoV Support Bot is running...");
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+// ---------- Webhook (Render) vs Polling (local) ----------
+const isRender = !!process.env.RENDER;
+
+if (isRender) {
+  // Webhook mode for Render
+  const PORT = parseInt(process.env.PORT || "3000");
+  const WEBHOOK_URL = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/webhook`;
+
+  // Set webhook and start express server
+  bot.telegram.setWebhook(WEBHOOK_URL).then(() => {
+    console.log(`✅ Webhook set to ${WEBHOOK_URL}`);
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.post("/webhook", async (req, res) => {
+    try {
+      await bot.handleUpdate(req.body);
+      res.sendStatus(200);
+    } catch (err) {
+      console.error("Webhook error:", err);
+      res.sendStatus(500);
+    }
+  });
+  app.listen(PORT, () => {
+    console.log(`🚀 Webhook server listening on port ${PORT}`);
+  });
+} else {
+  // Polling mode for local development
+  bot.launch();
+  console.log("🤖 RevoV Support Bot is running in polling mode (local)");
+  process.once("SIGINT", () => bot.stop("SIGINT"));
+  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+}
