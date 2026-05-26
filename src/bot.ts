@@ -141,6 +141,7 @@ function userLink(userId: number, firstName: string): string {
 }
 
 // ---------- Helper: Forward any message to all active admins (with clickable user ID) ----------
+// ---------- Helper: Forward any message to all active admins (with clickable user info) ----------
 async function forwardToAdmins(
   ctx: MyContext,
   category: "TECHNICAL_ISSUE" | "COMMENT" | "FOLLOW_UP",
@@ -152,20 +153,24 @@ async function forwardToAdmins(
   const msg = ctx.message;
   if (!msg) return;
 
-  // Build clickable username link (if exists)
-  let usernameLink = "N/A";
-  if (user.username) {
-    usernameLink = `<a href="https://t.me/${escapeHtml(user.username)}">@${escapeHtml(user.username)}</a>`;
+  // Escape user details for HTML
+  const safeFirstName = escapeHtml(user.first_name);
+  const safeLastName = escapeHtml(user.last_name || "");
+  const fullName = `${safeFirstName} ${safeLastName}`.trim();
+  const username = user.username ? escapeHtml(user.username) : null;
+
+  // Build user info block
+  let userInfo = `👤 <a href="tg://user?id=${user.id}">${fullName}</a>\n`;
+  if (username) {
+    userInfo += `📱 <a href="https://t.me/${username}">@${username}</a>\n`;
+  } else {
+    userInfo += `📱 N/A\n`;
   }
+  userInfo += `🆔 <a href="tg://user?id=${user.id}"><code>${user.id}</code></a>\n`;
+  userInfo += `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n`;
+  userInfo += `🕒 Time: ${new Date().toISOString()}\n`;
 
-  const userInfo = userLink(user.id, user.first_name);
-  const userDetails = `👤 <b>${escapeHtml(user.first_name)} ${escapeHtml(user.last_name || "")}</b>\n` +
-                      `📱 ${usernameLink}\n` +
-                      `${userInfo}\n` +
-                      `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n` +
-                      `🕒 Time: ${new Date().toISOString()}`;
-
-  let metadata = `📢 <b>NEW ${category}</b>\n\n${userDetails}\n\n`;
+  let metadata = `📢 <b>NEW ${category}</b>\n\n${userInfo}\n`;
 
   if (extraInfo.description) metadata += `📝 Issue Description: ${escapeHtml(extraInfo.description)}\n`;
   if (extraInfo.commentText) metadata += `💬 Comment: ${escapeHtml(extraInfo.commentText)}\n`;
@@ -177,6 +182,7 @@ async function forwardToAdmins(
   for (const adminId of activeAdmins) {
     try {
       if (!includeOriginalMessage) {
+        // Send only metadata
         const sent = await ctx.telegram.sendMessage(adminId, metadata, { parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('text' in msg && msg.text) {
