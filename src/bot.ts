@@ -97,8 +97,8 @@ Then use the main menu buttons:
     techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
     commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
     commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
-    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
-    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።",
+    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል። \nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV",
+    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።\nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV",
     followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
     invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
     skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
@@ -118,11 +118,9 @@ Then use the main menu buttons:
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
 /adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
-/adminlist – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
+/adminlist – active አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
-/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ
-
-💡 *ምክር*: እንደ አስተዳዳሪ፣ ለእርስዎ በተላከ ማንኛውም የተጠቃሚ መልእክት በቀጥታ መልስ መስጠት ይችላሉ – ቦቱ ምላሽዎን ለዚያ ተጠቃሚ በራስ-ሰር ይልካል።`
+/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
   },
 };
 
@@ -377,7 +375,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (FIXED: media is now forwarded) ----------
+// ---------- Generic message handler ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -402,7 +400,6 @@ async function handleUserMessage(ctx: MyContext) {
     let description = "";
     let isMedia = false;
 
-    // Detect if the user sent media (photo, voice, video, document)
     if ('text' in msg && msg.text) {
       description = msg.text;
       isMedia = false;
@@ -426,20 +423,17 @@ async function handleUserMessage(ctx: MyContext) {
       isMedia = true;
     }
 
-    // Store the descriptive label for later (phone step)
     ctx.session.tempData.description = description;
 
-    // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
-    // For text, forwardToAdmins will skip adding description to metadata to avoid duplication.
+    // Forward the actual content to admins
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
 
-    // Move to phone step
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
   }
 
-  // ----- TECHNICAL ISSUE: phone number step -----
+  // ----- TECHNICAL ISSUE: phone number step (FIXED: no description resent) -----
   if (step === "tech_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -450,11 +444,8 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward ONLY metadata (with phone number) – the media/text was already sent
-    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
-      description: ctx.session.tempData.description,
-      phone: phone,
-    }, false);
+    // Forward ONLY the phone number - no description
+    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { phone: phone }, false);
     await ctx.reply(t.thanksTech);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
@@ -493,7 +484,7 @@ async function handleUserMessage(ctx: MyContext) {
 
     ctx.session.tempData.commentText = commentText;
 
-    // Forward the actual comment (text or media) to admins NOW
+    // Forward the actual comment to admins
     await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
 
     ctx.session.flowStep = "comment_phone";
@@ -501,7 +492,7 @@ async function handleUserMessage(ctx: MyContext) {
     return;
   }
 
-  // ----- COMMENT: phone number step -----
+  // ----- COMMENT: phone number step (FIXED: no comment text resent) -----
   if (step === "comment_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -512,11 +503,8 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
-    // Forward ONLY metadata with phone (comment already sent)
-    await forwardToAdmins(ctx, "COMMENT", {
-      commentText: ctx.session.tempData.commentText,
-      phone: phone,
-    }, false);
+    // Forward ONLY the phone number - no comment text
+    await forwardToAdmins(ctx, "COMMENT", { phone: phone }, false);
     await ctx.reply(t.thanksComment);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
