@@ -4,11 +4,14 @@ import express from "express";
 
 // ---------- Environment variables ----------
 const BOT_TOKEN = process.env.BOT_TOKEN!;
-const ADMIN_GROUP_ID = Number(process.env.ADMIN_GROUP_ID); // e.g. -1001234567890
+const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_IDS?.split(",").map(id => parseInt(id.trim())) || [];
 
-if (!BOT_TOKEN || !ADMIN_GROUP_ID) {
-  throw new Error("Missing BOT_TOKEN or ADMIN_GROUP_ID in environment");
+if (!BOT_TOKEN || ADMIN_CHAT_IDS.length === 0) {
+  throw new Error("Missing BOT_TOKEN or ADMIN_CHAT_IDS in environment");
 }
+
+// ---------- In-memory store of active admins (those who have used /admin_start) ----------
+let activeAdmins: Set<number> = new Set();
 
 // ---------- Conversation state ----------
 interface SessionData {
@@ -41,6 +44,9 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     done: "✅ Your report has been sent to our support team (24/7). We'll follow up.",
     resolutionMsg: "✅ Your issue has been resolved. Thank you for using RevoV!",
     followUpConfirm: "📨 Your follow-up message has been sent to the support team.",
+    adminStart: "✅ You are now registered as an active admin. You will receive all user reports and replies.",
+    adminAlready: "ℹ️ You are already an active admin.",
+    adminReminder: "🔔 Admin reminder: please send /admin_start to this bot to start receiving user reports.",
   },
   am: {
     welcome:
@@ -55,6 +61,9 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     done: "✅ ሪፖርትዎ ለድጋፍ ቡድናችን (24/7) ተልኳል። እንከታተላለን።",
     resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
     followUpConfirm: "📨 የክትትል መልእክትዎ ለድጋፍ ቡድን ተልኳል።",
+    adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ ሪፖርቶች እና ምላሾች ይቀበላሉ።",
+    adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ነዎት።",
+    adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ ሪፖርቶችን መቀበል ለመጀመር እባክዎ /admin_start ይላኩ።",
   },
 };
 
@@ -101,21 +110,39 @@ function classifyIssue(description: string): string {
   return "other";
 }
 
-// ---------- Store mapping: bot message ID (in admin group) -> user ID ----------
+// ---------- Store mapping: bot message ID -> user ID (for reply-to functionality) ----------
 const replyMapping = new Map<number, number>();
 
-// ---------- Helper: Send a message to the admin group and store reply mapping ----------
-async function sendToAdminGroupWithMapping(ctx: MyContext, text: string, userId: number) {
-  try {
-    const sentMsg = await ctx.telegram.sendMessage(ADMIN_GROUP_ID, text);
-    replyMapping.set(sentMsg.message_id, userId);
-    console.log(`Stored mapping: adminMsg ${sentMsg.message_id} -> user ${userId}`);
-  } catch (err) {
-    console.error(`Failed to send to admin group ${ADMIN_GROUP_ID}:`, err);
+// ---------- Helper: Send a message to all active admins and store reply mapping ----------
+async function sendToAllActiveAdmins(ctx: MyContext, text: string, userId: number) {
+  for (const adminId of activeAdmins) {
+    try {
+      const sentMsg = await ctx.telegram.sendMessage(adminId, text);
+      replyMapping.set(sentMsg.message_id, userId);
+      console.log(`Stored mapping: adminMsg ${sentMsg.message_id} -> user ${userId}`);
+    } catch (err) {
+      console.error(`Failed to send to admin ${adminId}:`, err);
+      // Optionally remove inactive admin from active set
+      // activeAdmins.delete(adminId);
+    }
   }
 }
 
-// ---------- Send initial report to admin group ----------
+// ---------- Remind inactive admins (those in ADMIN_CHAT_IDS but not active) ----------
+async function remindInactiveAdmins(ctx: MyContext) {
+  for (const adminId of ADMIN_CHAT_IDS) {
+    if (!activeAdmins.has(adminId)) {
+      try {
+        await ctx.telegram.sendMessage(adminId, texts.en.adminReminder);
+        console.log(`Reminder sent to inactive admin ${adminId}`);
+      } catch (err) {
+        console.error(`Could not send reminder to admin ${adminId}:`, err);
+      }
+    }
+  }
+}
+
+// ---------- Send initial report to all active admins ----------
 async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: boolean) {
   const user = ctx.from;
   const report = `
@@ -136,10 +163,12 @@ async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: b
 🕒 Report Timestamp: ${new Date().toISOString()}
   `.trim();
 
-  await sendToAdminGroupWithMapping(ctx, report, user!.id);
+  await sendToAllActiveAdmins(ctx, report, user!.id);
+  // Remind inactive admins after each report so they know they're missing messages
+  await remindInactiveAdmins(ctx);
 }
 
-// ---------- Send follow-up message to admin group ----------
+// ---------- Send follow-up message to all active admins ----------
 async function sendFollowUpToAdmins(ctx: MyContext, followUpText: string) {
   const user = ctx.from;
   const followUpMsg = `
@@ -156,10 +185,11 @@ async function sendFollowUpToAdmins(ctx: MyContext, followUpText: string) {
 🕒 Sent at: ${new Date().toISOString()}
   `.trim();
 
-  await sendToAdminGroupWithMapping(ctx, followUpMsg, user!.id);
+  await sendToAllActiveAdmins(ctx, followUpMsg, user!.id);
+  await remindInactiveAdmins(ctx);
 }
 
-// ---------- Notify all admins when an admin replies to a user (send a notification to the group) ----------
+// ---------- Notify all active admins when an admin replies to a user ----------
 async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: string, targetUserId: number, messageText: string) {
   const notification = `
 📨 ADMIN REPLY SENT
@@ -170,12 +200,15 @@ async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: s
 🕒 Sent at: ${new Date().toISOString()}
   `.trim();
 
-  try {
-    await bot.telegram.sendMessage(ADMIN_GROUP_ID, notification);
-    console.log(`Reply notification sent to admin group`);
-  } catch (err) {
-    console.error(`Failed to send reply notification to admin group:`, err);
+  for (const adminId of activeAdmins) {
+    try {
+      await bot.telegram.sendMessage(adminId, notification);
+      console.log(`Reply notification sent to admin ${adminId}`);
+    } catch (err) {
+      console.error(`Failed to send reply notification to admin ${adminId}:`, err);
+    }
   }
+  // No need to remind inactive admins here because they don't get notifications anyway
 }
 
 // ---------- Bot initialization ----------
@@ -191,6 +224,33 @@ bot.use(
     }),
   }),
 );
+
+// ---------- Admin registration command ----------
+bot.command("admin_start", async (ctx) => {
+  const userId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(userId)) {
+    await ctx.reply("❌ You are not authorized as an admin.");
+    return;
+  }
+  if (activeAdmins.has(userId)) {
+    await ctx.reply(texts.en.adminAlready);
+    return;
+  }
+  activeAdmins.add(userId);
+  const lang = ctx.session.language || "en";
+  await ctx.reply(texts[lang].adminStart);
+  console.log(`Admin ${userId} registered successfully.`);
+});
+
+// Optional: Command to list active admins (for debugging)
+bot.command("admin_list", async (ctx) => {
+  if (!ADMIN_CHAT_IDS.includes(ctx.from.id)) {
+    await ctx.reply("❌ Unauthorized.");
+    return;
+  }
+  const activeList = Array.from(activeAdmins).join(", ");
+  await ctx.reply(`Active admins: ${activeList || "none"}`);
+});
 
 // Start command - resets the conversation
 bot.start(async (ctx) => {
@@ -214,13 +274,16 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// ----- Admin commands: /reply and /resolve (can be used in the admin group or privately) -----
+// ----- Admin commands: /reply and /resolve (still work, now also notify active admins) -----
 
 // /reply <user_id> <message>
 bot.command("reply", async (ctx) => {
-  // Allow anyone in the admin group to use this command (you can also add a check for specific admin IDs)
-  // But we'll still check that the command is used in the admin group or by an admin.
-  // For simplicity, we allow the command from any chat, but you can restrict it if needed.
+  const adminId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(adminId)) {
+    await ctx.reply("❌ Only admins can use this command.");
+    return;
+  }
+
   const args = ctx.message.text.split(" ");
   if (args.length < 3) {
     await ctx.reply("Usage: /reply <user_id> <your message>");
@@ -243,8 +306,8 @@ bot.command("reply", async (ctx) => {
     await ctx.telegram.sendMessage(targetUserId, replyMessage);
     await ctx.reply(`✅ Reply sent to user ${targetUserId}`);
 
-    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
-    await notifyAdminsOfReply(ctx.from.id, adminName, targetUserId, replyMessage);
+    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
+    await notifyAdminsOfReply(adminId, adminName, targetUserId, replyMessage);
   } catch (err) {
     console.error("Failed to send reply:", err);
     await ctx.reply(`❌ Failed to send reply: ${err}`);
@@ -253,6 +316,12 @@ bot.command("reply", async (ctx) => {
 
 // /resolve <user_id>
 bot.command("resolve", async (ctx) => {
+  const adminId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(adminId)) {
+    await ctx.reply("❌ Only admins can use this command.");
+    return;
+  }
+
   const args = ctx.message.text.split(" ");
   if (args.length < 2) {
     await ctx.reply("Usage: /resolve <user_id>");
@@ -265,30 +334,31 @@ bot.command("resolve", async (ctx) => {
     return;
   }
 
-  // Determine language of the target user? We don't have session here.
+  // Determine language of target user? We don't have session here.
   // Using English as fallback. To be perfect, you'd need to store user's language.
   const resolutionText = texts.en.resolutionMsg;
   try {
     await ctx.telegram.sendMessage(targetUserId, resolutionText);
     await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
 
-    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
-    await notifyAdminsOfReply(ctx.from.id, adminName, targetUserId, resolutionText);
+    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
+    await notifyAdminsOfReply(adminId, adminName, targetUserId, resolutionText);
   } catch (err) {
     await ctx.reply(`❌ Failed to send: ${err}`);
   }
 });
 
-// ----- Handle admin replies (replying directly to a bot message in the admin group) -----
+// ----- Handle admin replies (replying directly to a bot message in private chat) -----
 bot.on(message("text"), async (ctx) => {
   // Ignore commands (they are already handled above)
   if (ctx.message.text.startsWith("/")) return;
 
-  const isAdminGroup = ctx.chat.id === ADMIN_GROUP_ID;
+  const isAdmin = ADMIN_CHAT_IDS.includes(ctx.from.id);
+  const isPrivate = ctx.chat.type === "private";
   const isReply = !!ctx.message.reply_to_message;
 
-  // If the message is in the admin group and is a reply to a bot message, map it to a user
-  if (isAdminGroup && isReply) {
+  // If an admin replies to a message in private chat, try to map it to a user
+  if (isAdmin && isPrivate && isReply) {
     const repliedToMsgId = ctx.message.reply_to_message.message_id;
     const userId = replyMapping.get(repliedToMsgId);
 
@@ -304,23 +374,14 @@ bot.on(message("text"), async (ctx) => {
         console.error("Failed to send admin reply to user:", err);
         await ctx.reply(`❌ Failed to send reply: ${err}`);
       }
-      return; // Handled, do not process further
+      return; // Handled
     } else {
       await ctx.reply("ℹ️ You replied to a message that is not linked to any user. Use /reply <user_id> <message> if you want to send a custom reply.");
       return;
     }
   }
 
-  // ----- Normal user flow (private chat, non-admin, or admin not replying) -----
-  // If the chat is the admin group, don't treat it as a user flow
-  if (ctx.chat.id === ADMIN_GROUP_ID) {
-    // Ignore other messages in the admin group (like casual chat)
-    return;
-  }
-
-  // Only proceed for private chats with users
-  if (ctx.chat.type !== "private") return;
-
+  // ----- Normal user flow (non-admin, or admin not replying) -----
   const step = ctx.session.step;
   const lang = ctx.session.language;
   const t = texts[lang];
@@ -364,11 +425,9 @@ bot.on(message("text"), async (ctx) => {
     await sendToAdmins(ctx, category, instantFixGiven);
     ctx.session.step = "done";
   } else if (step === "done") {
-    // User is sending a follow-up message after the initial report
     await sendFollowUpToAdmins(ctx, input);
     await ctx.reply(t.followUpConfirm);
   } else {
-    // Fallback (should not happen)
     await ctx.reply(t.error);
     ctx.session.step = "description";
     await ctx.reply(t.askDescription);
