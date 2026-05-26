@@ -139,33 +139,19 @@ async function forwardToAdmins(
   const msg = ctx.message;
   if (!msg) return;
 
-  // For phone step (includeOriginalMessage = false), send a minimal notification
-  if (!includeOriginalMessage && extraInfo.phone) {
-    const shortMsg = `📞 *Phone number for user ${user.id}:* ${extraInfo.phone}`;
-    for (const adminId of activeAdmins) {
-      try {
-        const sent = await ctx.telegram.sendMessage(adminId, shortMsg, { parse_mode: "Markdown" });
-        replyMapping.set(sent.message_id, user.id);
-      } catch (err) {
-        console.error(`Failed to send short phone notification to admin ${adminId}:`, err);
-      }
-    }
-    return;
-  }
-
-  // Full metadata for the first message (description/comment)
   let metadata = `📢 NEW ${category}\n\n`;
   metadata += `👤 User: ${user.first_name} ${user.last_name || ""} (@${user.username || "N/A"})\n`;
   metadata += `🆔 ID: \`${user.id}\`\n`;
   metadata += `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n`;
   metadata += `🕒 Time: ${new Date().toISOString()}\n\n`;
 
+  // For text messages, if we are including the original message, skip adding description/commentText to metadata to avoid duplication.
   const isTextMessage = 'text' in msg && msg.text;
   if (!(includeOriginalMessage && isTextMessage)) {
     if (extraInfo.description) metadata += `📝 Issue Description: ${extraInfo.description}\n`;
     if (extraInfo.commentText) metadata += `💬 Comment: ${extraInfo.commentText}\n`;
   }
-  // Phone is already handled above, so we don't add it here
+  if (extraInfo.phone) metadata += `📞 Phone: ${extraInfo.phone}\n`;
 
   // Append hashtag for filtering
   if (category === "TECHNICAL_ISSUE") metadata += "\n#issue #SATEV";
@@ -173,7 +159,11 @@ async function forwardToAdmins(
 
   for (const adminId of activeAdmins) {
     try {
-      if (isTextMessage) {
+      if (!includeOriginalMessage) {
+        // Send only metadata (e.g., for phone number step)
+        const sent = await ctx.telegram.sendMessage(adminId, metadata, { parse_mode: "Markdown" });
+        replyMapping.set(sent.message_id, user.id);
+      } else if (isTextMessage) {
         const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n" + msg.text, { parse_mode: "Markdown" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('photo' in msg && msg.photo) {
@@ -385,7 +375,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler ----------
+// ---------- Generic message handler (FIXED: media is now forwarded) ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -408,28 +398,40 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "tech_description") {
     const msg = ctx.message;
     let description = "";
+    let isMedia = false;
 
+    // Detect if the user sent media (photo, voice, video, document)
     if ('text' in msg && msg.text) {
       description = msg.text;
+      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       description = msg.caption;
+      isMedia = true;
     } else if ('photo' in msg) {
       description = "📷 Photo (see below)";
+      isMedia = true;
     } else if ('voice' in msg) {
       description = "🎤 Voice message";
+      isMedia = true;
     } else if ('video' in msg) {
       description = "🎥 Video";
+      isMedia = true;
     } else if ('document' in msg) {
       description = "📄 Document";
+      isMedia = true;
     } else {
       description = "[Unsupported media type]";
+      isMedia = true;
     }
 
+    // Store the descriptive label for later (phone step)
     ctx.session.tempData.description = description;
 
-    // Forward the actual content to admins
+    // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
+    // For text, forwardToAdmins will skip adding description to metadata to avoid duplication.
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
 
+    // Move to phone step
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
@@ -446,8 +448,11 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward ONLY the phone number (minimal message)
-    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { phone: phone }, false);
+    // Forward ONLY metadata (with phone number) – the media/text was already sent
+    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
+      description: ctx.session.tempData.description,
+      phone: phone,
+    }, false);
     await ctx.reply(t.thanksTech);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
@@ -459,26 +464,34 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "comment_text") {
     const msg = ctx.message;
     let commentText = "";
+    let isMedia = false;
 
     if ('text' in msg && msg.text) {
       commentText = msg.text;
+      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       commentText = msg.caption;
+      isMedia = true;
     } else if ('photo' in msg) {
       commentText = "📷 Photo (see below)";
+      isMedia = true;
     } else if ('voice' in msg) {
       commentText = "🎤 Voice message";
+      isMedia = true;
     } else if ('video' in msg) {
       commentText = "🎥 Video";
+      isMedia = true;
     } else if ('document' in msg) {
       commentText = "📄 Document";
+      isMedia = true;
     } else {
       commentText = "[Unsupported media type]";
+      isMedia = true;
     }
 
     ctx.session.tempData.commentText = commentText;
 
-    // Forward the actual comment to admins
+    // Forward the actual comment (text or media) to admins NOW
     await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
 
     ctx.session.flowStep = "comment_phone";
@@ -497,8 +510,11 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
-    // Forward ONLY the phone number (minimal message)
-    await forwardToAdmins(ctx, "COMMENT", { phone: phone }, false);
+    // Forward ONLY metadata with phone (comment already sent)
+    await forwardToAdmins(ctx, "COMMENT", {
+      commentText: ctx.session.tempData.commentText,
+      phone: phone,
+    }, false);
     await ctx.reply(t.thanksComment);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
