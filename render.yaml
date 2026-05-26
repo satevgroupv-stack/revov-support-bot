@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: revov-support-bot
+    runtime: node
+    repo: https://github.com/satevgroupv/revov-support-bot
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        sync: false  # You will set this manually in Render dashboard
+      - key: SUPPORT_GROUP_ID
+        sync: false
