@@ -66,7 +66,6 @@ const replyMapping = new Map<number, number>();
 async function forwardUserMessageToAdmins(ctx: MyContext, category: string) {
   const user = ctx.from;
   if (!user) return;
-
   const msg = ctx.message;
   if (!msg) return;
 
@@ -74,38 +73,44 @@ async function forwardUserMessageToAdmins(ctx: MyContext, category: string) {
 
   for (const adminId of activeAdmins) {
     try {
-      if (msg.text) {
-        const sentMsg = await ctx.telegram.sendMessage(adminId, metadata + msg.text);
-        replyMapping.set(sentMsg.message_id, user.id);
-      } else if (msg.photo) {
+      if ('text' in msg && msg.text) {
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + msg.text);
+        replyMapping.set(sent.message_id, user.id);
+      } 
+      else if ('photo' in msg && msg.photo) {
         const photo = msg.photo[msg.photo.length - 1];
         const caption = metadata + (msg.caption || "");
-        const sentMsg = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption });
-        replyMapping.set(sentMsg.message_id, user.id);
-      } else if (msg.voice) {
-        const sentVoice = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata });
-        replyMapping.set(sentVoice.message_id, user.id);
+        const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption });
+        replyMapping.set(sent.message_id, user.id);
+      } 
+      else if ('voice' in msg && msg.voice) {
+        const sent = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata });
+        replyMapping.set(sent.message_id, user.id);
         if (msg.caption) {
-          const sentCaption = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${msg.caption}`);
-          replyMapping.set(sentCaption.message_id, user.id);
+          const sentCap = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${msg.caption}`);
+          replyMapping.set(sentCap.message_id, user.id);
         }
-      } else if (msg.video) {
+      } 
+      else if ('video' in msg && msg.video) {
         const caption = metadata + (msg.caption || "");
-        const sentMsg = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption });
-        replyMapping.set(sentMsg.message_id, user.id);
-      } else if (msg.document) {
+        const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption });
+        replyMapping.set(sent.message_id, user.id);
+      } 
+      else if ('document' in msg && msg.document) {
         const caption = metadata + (msg.caption || "");
-        const sentMsg = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption });
-        replyMapping.set(sentMsg.message_id, user.id);
-      } else {
-        const sentMsg = await ctx.telegram.sendMessage(adminId, metadata + "Unsupported message type");
-        replyMapping.set(sentMsg.message_id, user.id);
+        const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption });
+        replyMapping.set(sent.message_id, user.id);
+      } 
+      else {
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "Unsupported message type");
+        replyMapping.set(sent.message_id, user.id);
       }
     } catch (err) {
       console.error(`Failed to forward to admin ${adminId}:`, err);
     }
   }
 }
+
 
 // ---------- Remind inactive admins ----------
 async function remindInactiveAdmins() {
