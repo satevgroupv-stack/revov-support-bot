@@ -4,10 +4,11 @@ import express from "express";
 
 // ---------- Environment variables ----------
 const BOT_TOKEN = process.env.BOT_TOKEN!;
-const SUPPORT_GROUP_ID = process.env.SUPPORT_GROUP_ID!;
+// Comma-separated list of admin Telegram user IDs (e.g. "123456789,987654321")
+const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_IDS?.split(",").map(id => parseInt(id.trim())) || [];
 
-if (!BOT_TOKEN || !SUPPORT_GROUP_ID) {
-  throw new Error("Missing BOT_TOKEN or SUPPORT_GROUP_ID in environment");
+if (!BOT_TOKEN || ADMIN_CHAT_IDS.length === 0) {
+  throw new Error("Missing BOT_TOKEN or ADMIN_CHAT_IDS in environment");
 }
 
 // ---------- Conversation state ----------
@@ -100,26 +101,34 @@ function classifyIssue(description: string): string {
   return "other";
 }
 
-// ---------- Forward to support group ----------
-async function forwardToSupportGroup(
-  ctx: MyContext,
-  category: string,
-  instantFixGiven: boolean,
-) {
-  const summary = `
+// ---------- Send report to all admins (private messages) ----------
+async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: boolean) {
+  const user = ctx.from;
+  const report = `
 📢 NEW ISSUE REPORT
-Time of report: ${new Date().toISOString()}
-User phone: ${ctx.session.phone}
-Category: ${category}
-Description: ${ctx.session.description}
-Instant fix given: ${instantFixGiven ? "yes" : "no"}
-Language: ${ctx.session.language === "en" ? "English" : "Amharic"}
+
+👤 USER ACCOUNT INFO:
+• Chat ID: ${user?.id}
+• Username: @${user?.username || "N/A"}
+• First Name: ${user?.first_name || "N/A"}
+• Last Name: ${user?.last_name || "N/A"}
+• Language Code: ${user?.language_code || "N/A"}
+
+📞 Phone: ${ctx.session.phone}
+📝 Description: ${ctx.session.description}
+🏷️ Category: ${category}
+⚡ Instant Fix Given: ${instantFixGiven ? "✅ Yes" : "❌ No"}
+🌐 Bot Language: ${ctx.session.language === "en" ? "English" : "Amharic"}
+🕒 Report Timestamp: ${new Date().toISOString()}
   `.trim();
-  try {
-    await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, summary);
-    console.log("Forwarded to support group");
-  } catch (err) {
-    console.error("Failed to forward:", err);
+
+  for (const adminId of ADMIN_CHAT_IDS) {
+    try {
+      await ctx.telegram.sendMessage(adminId, report);
+      console.log(`Report sent to admin ${adminId}`);
+    } catch (err) {
+      console.error(`Failed to send to admin ${adminId}:`, err);
+    }
   }
 }
 
@@ -159,7 +168,7 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// Text handler (new order: description → phone → done)
+// Text handler (description → phone → done)
 bot.on(message("text"), async (ctx) => {
   const step = ctx.session.step;
   const lang = ctx.session.language;
@@ -201,7 +210,7 @@ bot.on(message("text"), async (ctx) => {
       }
       await ctx.reply(replyText);
       await ctx.reply(t.done);
-      await forwardToSupportGroup(ctx, category, instantFixGiven);
+      await sendToAdmins(ctx, category, instantFixGiven);
       ctx.session.step = "done";
       break;
     case "done":
@@ -214,10 +223,11 @@ bot.on(message("text"), async (ctx) => {
   }
 });
 
-// Resolve command (only in support group)
+// Resolve command (only available to admins)
 bot.command("resolve", async (ctx) => {
-  if (ctx.chat.id.toString() !== SUPPORT_GROUP_ID) {
-    await ctx.reply("This command can only be used in the support group.");
+  const userId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(userId)) {
+    await ctx.reply("❌ Only admins can use this command.");
     return;
   }
   const args = ctx.message.text.split(" ");
@@ -225,16 +235,16 @@ bot.command("resolve", async (ctx) => {
     await ctx.reply("Usage: /resolve <user_telegram_id>");
     return;
   }
-  const userId = parseInt(args[1]);
-  if (isNaN(userId)) {
+  const targetUserId = parseInt(args[1]);
+  if (isNaN(targetUserId)) {
     await ctx.reply("Invalid user ID.");
     return;
   }
   try {
-    await ctx.telegram.sendMessage(userId, texts.en.resolutionMsg);
-    await ctx.reply(`Resolution message sent to user ${userId}`);
+    await ctx.telegram.sendMessage(targetUserId, texts.en.resolutionMsg);
+    await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
   } catch (err) {
-    await ctx.reply(`Failed to send: ${err}`);
+    await ctx.reply(`❌ Failed to send: ${err}`);
   }
 });
 
@@ -247,11 +257,9 @@ bot.catch((err, ctx) => {
 const isRender = !!process.env.RENDER;
 
 if (isRender) {
-  // Webhook mode for Render
   const PORT = parseInt(process.env.PORT || "3000");
   const WEBHOOK_URL = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/webhook`;
 
-  // Set webhook and start express server
   bot.telegram.setWebhook(WEBHOOK_URL).then(() => {
     console.log(`✅ Webhook set to ${WEBHOOK_URL}`);
   });
@@ -271,7 +279,6 @@ if (isRender) {
     console.log(`🚀 Webhook server listening on port ${PORT}`);
   });
 } else {
-  // Polling mode for local development
   bot.launch();
   console.log("🤖 RevoV Support Bot is running in polling mode (local)");
   process.once("SIGINT", () => bot.stop("SIGINT"));
