@@ -159,6 +159,27 @@ async function sendFollowUpToAdmins(ctx: MyContext, followUpText: string) {
   }
 }
 
+// ---------- Notify all admins when an admin replies to a user ----------
+async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: string, targetUserId: number, messageText: string) {
+  const notification = `
+📨 ADMIN REPLY SENT
+
+👤 Admin: ${replyingAdminName} (ID: ${replyingAdminId})
+👤 To User ID: ${targetUserId}
+📝 Message: ${messageText}
+🕒 Sent at: ${new Date().toISOString()}
+  `.trim();
+
+  for (const adminId of ADMIN_CHAT_IDS) {
+    try {
+      await bot.telegram.sendMessage(adminId, notification);
+      console.log(`Reply notification sent to admin ${adminId}`);
+    } catch (err) {
+      console.error(`Failed to send reply notification to admin ${adminId}:`, err);
+    }
+  }
+}
+
 // ---------- Bot initialization ----------
 const bot = new Telegraf<MyContext>(BOT_TOKEN);
 
@@ -195,8 +216,86 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// Text handler
+// ----- Admin commands: /reply and /resolve (only in private chat with bot) -----
+
+// /reply <user_id> <message>
+bot.command("reply", async (ctx) => {
+  const adminId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(adminId)) {
+    await ctx.reply("❌ Only admins can use this command.");
+    return;
+  }
+
+  const args = ctx.message.text.split(" ");
+  if (args.length < 3) {
+    await ctx.reply("Usage: /reply <user_id> <your message>");
+    return;
+  }
+
+  const targetUserId = parseInt(args[1]);
+  if (isNaN(targetUserId)) {
+    await ctx.reply("❌ Invalid user ID. Must be a number.");
+    return;
+  }
+
+  const replyMessage = args.slice(2).join(" ");
+  if (!replyMessage.trim()) {
+    await ctx.reply("❌ Message cannot be empty.");
+    return;
+  }
+
+  try {
+    // Send the message to the user
+    await ctx.telegram.sendMessage(targetUserId, replyMessage);
+    await ctx.reply(`✅ Reply sent to user ${targetUserId}`);
+
+    // Notify all admins about this reply
+    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
+    await notifyAdminsOfReply(adminId, adminName, targetUserId, replyMessage);
+  } catch (err) {
+    console.error("Failed to send reply:", err);
+    await ctx.reply(`❌ Failed to send reply: ${err}`);
+  }
+});
+
+// /resolve <user_id> (sends standard resolution message)
+bot.command("resolve", async (ctx) => {
+  const adminId = ctx.from.id;
+  if (!ADMIN_CHAT_IDS.includes(adminId)) {
+    await ctx.reply("❌ Only admins can use this command.");
+    return;
+  }
+
+  const args = ctx.message.text.split(" ");
+  if (args.length < 2) {
+    await ctx.reply("Usage: /resolve <user_id>");
+    return;
+  }
+
+  const targetUserId = parseInt(args[1]);
+  if (isNaN(targetUserId)) {
+    await ctx.reply("❌ Invalid user ID.");
+    return;
+  }
+
+  try {
+    // Send resolution message (English version, as user's language may not be stored)
+    await ctx.telegram.sendMessage(targetUserId, texts.en.resolutionMsg);
+    await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
+
+    // Notify all admins about this resolve action
+    const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
+    await notifyAdminsOfReply(adminId, adminName, targetUserId, texts.en.resolutionMsg);
+  } catch (err) {
+    await ctx.reply(`❌ Failed to send: ${err}`);
+  }
+});
+
+// ----- User text handler (initial report + follow-ups) -----
 bot.on(message("text"), async (ctx) => {
+  // Ignore messages that are commands (already handled)
+  if (ctx.message.text.startsWith("/")) return;
+
   const step = ctx.session.step;
   const lang = ctx.session.language;
   const t = texts[lang];
@@ -248,32 +347,6 @@ bot.on(message("text"), async (ctx) => {
     await ctx.reply(t.error);
     ctx.session.step = "description";
     await ctx.reply(t.askDescription);
-  }
-});
-
-// Resolve command (only for admins)
-bot.command("resolve", async (ctx) => {
-  const userId = ctx.from.id;
-  if (!ADMIN_CHAT_IDS.includes(userId)) {
-    await ctx.reply("❌ Only admins can use this command.");
-    return;
-  }
-  const args = ctx.message.text.split(" ");
-  if (args.length < 2) {
-    await ctx.reply("Usage: /resolve <user_telegram_id>");
-    return;
-  }
-  const targetUserId = parseInt(args[1]);
-  if (isNaN(targetUserId)) {
-    await ctx.reply("Invalid user ID.");
-    return;
-  }
-  try {
-    // Send resolution message in English (user's language not stored after session ends)
-    await ctx.telegram.sendMessage(targetUserId, texts.en.resolutionMsg);
-    await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
-  } catch (err) {
-    await ctx.reply(`❌ Failed to send: ${err}`);
   }
 });
 
