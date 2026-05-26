@@ -101,6 +101,22 @@ function classifyIssue(description: string): string {
   return "other";
 }
 
+// ---------- Store mapping: bot message ID -> user ID (for reply-to functionality) ----------
+const replyMapping = new Map<number, number>();
+
+// ---------- Helper: Send message to all admins and store reply mapping ----------
+async function sendToAdminsWithMapping(ctx: MyContext, text: string, userId: number) {
+  for (const adminId of ADMIN_CHAT_IDS) {
+    try {
+      const sentMsg = await ctx.telegram.sendMessage(adminId, text);
+      replyMapping.set(sentMsg.message_id, userId);
+      console.log(`Stored mapping: adminMsg ${sentMsg.message_id} -> user ${userId}`);
+    } catch (err) {
+      console.error(`Failed to send to admin ${adminId}:`, err);
+    }
+  }
+}
+
 // ---------- Send initial report to admins ----------
 async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: boolean) {
   const user = ctx.from;
@@ -122,14 +138,7 @@ async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: b
 🕒 Report Timestamp: ${new Date().toISOString()}
   `.trim();
 
-  for (const adminId of ADMIN_CHAT_IDS) {
-    try {
-      await ctx.telegram.sendMessage(adminId, report);
-      console.log(`Report sent to admin ${adminId}`);
-    } catch (err) {
-      console.error(`Failed to send to admin ${adminId}:`, err);
-    }
-  }
+  await sendToAdminsWithMapping(ctx, report, user!.id);
 }
 
 // ---------- Send follow-up message to admins ----------
@@ -149,14 +158,7 @@ async function sendFollowUpToAdmins(ctx: MyContext, followUpText: string) {
 🕒 Sent at: ${new Date().toISOString()}
   `.trim();
 
-  for (const adminId of ADMIN_CHAT_IDS) {
-    try {
-      await ctx.telegram.sendMessage(adminId, followUpMsg);
-      console.log(`Follow-up sent to admin ${adminId}`);
-    } catch (err) {
-      console.error(`Failed to send follow-up to admin ${adminId}:`, err);
-    }
-  }
+  await sendToAdminsWithMapping(ctx, followUpMsg, user!.id);
 }
 
 // ---------- Notify all admins when an admin replies to a user ----------
@@ -216,7 +218,7 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// ----- Admin commands: /reply and /resolve (only in private chat with bot) -----
+// ----- Admin commands: /reply and /resolve (still available) -----
 
 // /reply <user_id> <message>
 bot.command("reply", async (ctx) => {
@@ -245,11 +247,9 @@ bot.command("reply", async (ctx) => {
   }
 
   try {
-    // Send the message to the user
     await ctx.telegram.sendMessage(targetUserId, replyMessage);
     await ctx.reply(`✅ Reply sent to user ${targetUserId}`);
 
-    // Notify all admins about this reply
     const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
     await notifyAdminsOfReply(adminId, adminName, targetUserId, replyMessage);
   } catch (err) {
@@ -258,7 +258,7 @@ bot.command("reply", async (ctx) => {
   }
 });
 
-// /resolve <user_id> (sends standard resolution message)
+// /resolve <user_id>
 bot.command("resolve", async (ctx) => {
   const adminId = ctx.from.id;
   if (!ADMIN_CHAT_IDS.includes(adminId)) {
@@ -279,11 +279,9 @@ bot.command("resolve", async (ctx) => {
   }
 
   try {
-    // Send resolution message (English version, as user's language may not be stored)
     await ctx.telegram.sendMessage(targetUserId, texts.en.resolutionMsg);
     await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
 
-    // Notify all admins about this resolve action
     const adminName = ctx.from.first_name || ctx.from.username || `Admin ${adminId}`;
     await notifyAdminsOfReply(adminId, adminName, targetUserId, texts.en.resolutionMsg);
   } catch (err) {
@@ -291,11 +289,44 @@ bot.command("resolve", async (ctx) => {
   }
 });
 
-// ----- User text handler (initial report + follow-ups) -----
+// ----- Handle admin replies (replying directly to a bot message) -----
 bot.on(message("text"), async (ctx) => {
-  // Ignore messages that are commands (already handled)
+  // Ignore commands (they are already handled above)
   if (ctx.message.text.startsWith("/")) return;
 
+  const isAdmin = ADMIN_CHAT_IDS.includes(ctx.from.id);
+  const isPrivate = ctx.chat.type === "private";
+  const isReply = !!ctx.message.reply_to_message;
+
+  // If an admin replies to a message in private chat, try to map it to a user
+  if (isAdmin && isPrivate && isReply) {
+    const repliedToMsgId = ctx.message.reply_to_message.message_id;
+    const userId = replyMapping.get(repliedToMsgId);
+
+    if (userId) {
+      // This reply is intended for a real user
+      const adminReplyText = ctx.message.text;
+      try {
+        // Send the admin's reply to the user
+        await ctx.telegram.sendMessage(userId, adminReplyText);
+        await ctx.reply(`✅ Your reply has been sent to user ${userId}`);
+
+        // Notify all admins about this reply
+        const adminName = ctx.from.first_name || ctx.from.username || `Admin ${ctx.from.id}`;
+        await notifyAdminsOfReply(ctx.from.id, adminName, userId, adminReplyText);
+      } catch (err) {
+        console.error("Failed to send admin reply to user:", err);
+        await ctx.reply(`❌ Failed to send reply: ${err}`);
+      }
+      return; // Handled, do not process further
+    } else {
+      // Admin replied to a message that is not mapped (e.g., an old notification or a command response)
+      await ctx.reply("ℹ️ You replied to a message that is not linked to any user. Use /reply <user_id> <message> if you want to send a custom reply.");
+      return;
+    }
+  }
+
+  // ----- Normal user flow (non-admin, or admin not replying) -----
   const step = ctx.session.step;
   const lang = ctx.session.language;
   const t = texts[lang];
