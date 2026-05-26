@@ -152,9 +152,15 @@ async function forwardToAdmins(
   const msg = ctx.message;
   if (!msg) return;
 
+  // Build clickable username link (if exists)
+  let usernameLink = "N/A";
+  if (user.username) {
+    usernameLink = `<a href="https://t.me/${escapeHtml(user.username)}">@${escapeHtml(user.username)}</a>`;
+  }
+
   const userInfo = userLink(user.id, user.first_name);
   const userDetails = `👤 <b>${escapeHtml(user.first_name)} ${escapeHtml(user.last_name || "")}</b>\n` +
-                      `📱 @${escapeHtml(user.username || "N/A")}\n` +
+                      `📱 ${usernameLink}\n` +
                       `${userInfo}\n` +
                       `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n` +
                       `🕒 Time: ${new Date().toISOString()}`;
