@@ -92,7 +92,7 @@ const texts: Record<LanguageKey, Record<string, string>> = {
 const replyMapping = new Map<number, number>();
 const bot = new Telegraf<MyContext>(BOT_TOKEN);
 
-// ---------- Helper: Forward any message (text, photo, etc.) to all active admins ----------
+// ---------- Helper: Forward any message to all active admins ----------
 async function forwardToAdmins(
   ctx: MyContext,
   category: "TECHNICAL_ISSUE" | "COMMENT" | "FOLLOW_UP",
@@ -182,7 +182,7 @@ async function showMainMenu(ctx: MyContext) {
       inline_keyboard: [
         [{ text: "💬 Send a Comment", callback_data: "menu_comment" }],
         [{ text: "🛠 Report Technical Issue", callback_data: "menu_tech" }],
-        [{ text: "🤖 Vending Machine Purchase", url: "https://example.com/order" }],
+        [{ text: "🤖 Vending Machine Purchase", url: "https://example.com/order" }], // 🔁 CHANGE THIS URL
       ],
     },
   });
@@ -291,7 +291,7 @@ bot.action("menu_tech", async (ctx) => {
 // ---------- Handle admin replies (direct reply to bot message) ----------
 bot.on(message("text"), async (ctx, next) => {
   const isAdmin = ADMIN_CHAT_IDS.includes(ctx.from.id);
-  const isPrivate = ctx.chat.type === "private";
+  const isPrivate = ctx.chat?.type === "private";
   const isReply = !!ctx.message.reply_to_message;
 
   if (isAdmin && isPrivate && isReply) {
@@ -320,6 +320,11 @@ bot.on(message("text"), async (ctx, next) => {
 
 // ---------- Generic message handler (text, photo, voice, video, document) ----------
 async function handleUserMessage(ctx: MyContext) {
+  // Guard: ensure chat and message exist
+  if (!ctx.chat || !ctx.message) {
+    console.error("Missing chat or message in update");
+    return;
+  }
   if (ctx.chat.type !== "private") return;
 
   const lang = ctx.session.language;
@@ -338,8 +343,8 @@ async function handleUserMessage(ctx: MyContext) {
     // Store the description (can be text, photo, voice, etc.)
     const msg = ctx.message;
     let description = "";
-    if (msg && 'text' in msg && msg.text) description = msg.text;
-    else if (msg && 'caption' in msg && msg.caption) description = msg.caption;
+    if ('text' in msg && msg.text) description = msg.text;
+    else if ('caption' in msg && msg.caption) description = msg.caption;
     else description = "[Non‑text media]";
     
     ctx.session.tempData.description = description;
@@ -358,13 +363,11 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward the complete tech issue
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
       description: ctx.session.tempData.description,
       phone: phone,
     });
     await ctx.reply(t.thanksTech);
-    // Reset flow
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
     await showMainMenu(ctx);
@@ -372,11 +375,10 @@ async function handleUserMessage(ctx: MyContext) {
   }
 
   if (step === "comment_text") {
-    // Store the comment (text or media caption)
     const msg = ctx.message;
     let commentText = "";
-    if (msg && 'text' in msg && msg.text) commentText = msg.text;
-    else if (msg && 'caption' in msg && msg.caption) commentText = msg.caption;
+    if ('text' in msg && msg.text) commentText = msg.text;
+    else if ('caption' in msg && msg.caption) commentText = msg.caption;
     else commentText = "[Non‑text media]";
     
     ctx.session.tempData.commentText = commentText;
@@ -407,9 +409,9 @@ async function handleUserMessage(ctx: MyContext) {
   }
 }
 
-// Register handlers for all message types
+// Register handlers for all message types (skip commands)
 bot.on(message("text"), async (ctx) => {
-  if (ctx.message.text.startsWith("/")) return; // skip commands
+  if (ctx.message.text.startsWith("/")) return;
   await handleUserMessage(ctx);
 });
 bot.on(message("photo"), handleUserMessage);
