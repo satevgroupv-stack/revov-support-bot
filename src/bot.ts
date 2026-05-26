@@ -4,7 +4,6 @@ import express from "express";
 
 // ---------- Environment variables ----------
 const BOT_TOKEN = process.env.BOT_TOKEN!;
-// Comma-separated list of admin Telegram user IDs (e.g. "123456789,987654321")
 const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_IDS?.split(",").map(id => parseInt(id.trim())) || [];
 
 if (!BOT_TOKEN || ADMIN_CHAT_IDS.length === 0) {
@@ -40,8 +39,8 @@ const texts: Record<LanguageKey, Record<string, string>> = {
       "This item is out of stock. Please select another product.",
     error: "Something went wrong. Please try again.",
     done: "✅ Your report has been sent to our support team (24/7). We'll follow up.",
-    resolutionMsg:
-      "✅ Your issue has been resolved. Thank you for using RevoV!",
+    resolutionMsg: "✅ Your issue has been resolved. Thank you for using RevoV!",
+    followUpConfirm: "📨 Your follow-up message has been sent to the support team.",
   },
   am: {
     welcome:
@@ -55,6 +54,7 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     error: "ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
     done: "✅ ሪፖርትዎ ለድጋፍ ቡድናችን (24/7) ተልኳል። እንከታተላለን።",
     resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
+    followUpConfirm: "📨 የክትትል መልእክትዎ ለድጋፍ ቡድን ተልኳል።",
   },
 };
 
@@ -101,7 +101,7 @@ function classifyIssue(description: string): string {
   return "other";
 }
 
-// ---------- Send report to all admins (private messages) ----------
+// ---------- Send initial report to admins ----------
 async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: boolean) {
   const user = ctx.from;
   const report = `
@@ -132,6 +132,33 @@ async function sendToAdmins(ctx: MyContext, category: string, instantFixGiven: b
   }
 }
 
+// ---------- Send follow-up message to admins ----------
+async function sendFollowUpToAdmins(ctx: MyContext, followUpText: string) {
+  const user = ctx.from;
+  const followUpMsg = `
+📨 FOLLOW-UP MESSAGE FROM USER
+
+👤 USER ACCOUNT INFO:
+• Chat ID: ${user?.id}
+• Username: @${user?.username || "N/A"}
+• First Name: ${user?.first_name || "N/A"}
+• Last Name: ${user?.last_name || "N/A"}
+• Language Code: ${user?.language_code || "N/A"}
+
+📝 Message: ${followUpText}
+🕒 Sent at: ${new Date().toISOString()}
+  `.trim();
+
+  for (const adminId of ADMIN_CHAT_IDS) {
+    try {
+      await ctx.telegram.sendMessage(adminId, followUpMsg);
+      console.log(`Follow-up sent to admin ${adminId}`);
+    } catch (err) {
+      console.error(`Failed to send follow-up to admin ${adminId}:`, err);
+    }
+  }
+}
+
 // ---------- Bot initialization ----------
 const bot = new Telegraf<MyContext>(BOT_TOKEN);
 
@@ -146,7 +173,7 @@ bot.use(
   }),
 );
 
-// Start command
+// Start command - resets the conversation
 bot.start(async (ctx) => {
   ctx.session.step = "language";
   await ctx.reply(texts.en.welcome, {
@@ -168,12 +195,13 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   await ctx.reply(texts[lang].askDescription);
 });
 
-// Text handler (description → phone → done)
+// Text handler
 bot.on(message("text"), async (ctx) => {
   const step = ctx.session.step;
   const lang = ctx.session.language;
   const t = texts[lang];
 
+  // If step is "language" (no language chosen yet), show language picker
   if (step === "language") {
     await ctx.reply(t.welcome, {
       reply_markup: {
@@ -188,42 +216,42 @@ bot.on(message("text"), async (ctx) => {
 
   const input = ctx.message.text.trim();
 
-  switch (step) {
-    case "description":
-      ctx.session.description = input;
-      ctx.session.step = "phone";
-      await ctx.reply(t.askPhone);
-      break;
-    case "phone":
-      ctx.session.phone = input;
-      const category = classifyIssue(ctx.session.description);
-      let instantFixGiven = false;
-      let replyText = "";
-      if (category === "payment error") {
-        replyText = t.instantFix_paymentFailed;
-        instantFixGiven = true;
-      } else if (category === "out of stock") {
-        replyText = t.instantFix_outOfStock;
-        instantFixGiven = true;
-      } else {
-        replyText = t.thanks;
-      }
-      await ctx.reply(replyText);
-      await ctx.reply(t.done);
-      await sendToAdmins(ctx, category, instantFixGiven);
-      ctx.session.step = "done";
-      break;
-    case "done":
-      await ctx.reply(t.done);
-      break;
-    default:
-      await ctx.reply(t.error);
-      ctx.session.step = "description";
-      await ctx.reply(t.askDescription);
+  // Handle the normal flow
+  if (step === "description") {
+    ctx.session.description = input;
+    ctx.session.step = "phone";
+    await ctx.reply(t.askPhone);
+  } else if (step === "phone") {
+    ctx.session.phone = input;
+    const category = classifyIssue(ctx.session.description);
+    let instantFixGiven = false;
+    let replyText = "";
+    if (category === "payment error") {
+      replyText = t.instantFix_paymentFailed;
+      instantFixGiven = true;
+    } else if (category === "out of stock") {
+      replyText = t.instantFix_outOfStock;
+      instantFixGiven = true;
+    } else {
+      replyText = t.thanks;
+    }
+    await ctx.reply(replyText);
+    await ctx.reply(t.done);
+    await sendToAdmins(ctx, category, instantFixGiven);
+    ctx.session.step = "done";
+  } else if (step === "done") {
+    // User is sending a follow-up message after the initial report
+    await sendFollowUpToAdmins(ctx, input);
+    await ctx.reply(t.followUpConfirm);
+  } else {
+    // Fallback (should not happen)
+    await ctx.reply(t.error);
+    ctx.session.step = "description";
+    await ctx.reply(t.askDescription);
   }
 });
 
-// Resolve command (only available to admins)
+// Resolve command (only for admins)
 bot.command("resolve", async (ctx) => {
   const userId = ctx.from.id;
   if (!ADMIN_CHAT_IDS.includes(userId)) {
@@ -241,6 +269,7 @@ bot.command("resolve", async (ctx) => {
     return;
   }
   try {
+    // Send resolution message in English (user's language not stored after session ends)
     await ctx.telegram.sendMessage(targetUserId, texts.en.resolutionMsg);
     await ctx.reply(`✅ Resolution message sent to user ${targetUserId}`);
   } catch (err) {
