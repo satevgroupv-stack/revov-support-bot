@@ -137,10 +137,11 @@ function escapeHtml(str: string): string {
   });
 }
 
-// ---------- Helper: Build clickable user ID link (HTML) ----------
+// ---------- Helper: Build clickable user ID with monospace formatting ----------
 function userLink(userId: number, firstName: string): string {
   const safeName = escapeHtml(firstName || `User ${userId}`);
-  return `<a href="tg://user?id=${userId}">🆔 ${userId} (${safeName})</a>`;
+  // Display: 🆔 <code>123456789</code> (John) – clickable
+  return `<a href="tg://user?id=${userId}">🆔 <code>${userId}</code> (${safeName})</a>`;
 }
 
 // ---------- Helper: Forward any message to all active admins (with clickable user ID) ----------
