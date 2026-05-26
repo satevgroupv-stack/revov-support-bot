@@ -22,8 +22,9 @@ if (ADMIN_CHAT_IDS.length === 0) {
   process.exit(1);
 }
 
-// ---------- Active admins ----------
-let activeAdmins: Set<number> = new Set();
+// ---------- Active admins – all configured admins are automatically active ----------
+let activeAdmins: Set<number> = new Set(ADMIN_CHAT_IDS);
+console.log(`✅ Auto-activated admins: ${Array.from(activeAdmins).join(", ")}`);
 
 // ---------- Session state ----------
 type FlowStep = 
@@ -46,7 +47,7 @@ interface MyContext extends Context {
   session: SessionData;
 }
 
-// ---------- Language texts (unchanged) ----------
+// ---------- Language texts ----------
 type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
@@ -66,9 +67,8 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     invalidInput: "❌ Invalid input. Please try again.",
     skipPhone: "⏭️ Phone number skipped.",
     error: "❌ Something went wrong. Please try again.",
-    adminStart: "✅ You are now registered as an active admin. You will receive all user messages.",
+    adminStart: "✅ You are already an active admin (all configured admins are automatically active).",
     adminAlready: "ℹ️ You are already an active admin.",
-    adminReminder: "🔔 Admin reminder: please send /adminstart to this bot to start receiving user messages.",
     resolutionMsg: "✅ Your issue has been resolved. Thank you for using RevoV!",
     help: `ℹ️ *Available Commands*
 
@@ -80,8 +80,7 @@ Then use the main menu buttons:
 • 🤖 Order a Drink – Visit our order page
 
 👑 *Admin Commands* (only for authorised admins)
-/adminstart – Register to receive user messages
-/adminlist – See configured and active admins
+/adminlist – See all configured admins (all are automatically active)
 /reply <user_id> <message> – Send a private reply to a user
 /resolve <user_id> – Send a resolution message to a user
 
@@ -103,9 +102,8 @@ Then use the main menu buttons:
     invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
     skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
     error: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
-    adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ መልእክቶች ይቀበላሉ።",
+    adminStart: "✅ እርስዎ ቀድሞውንም ንቁ አስተዳዳሪ ነዎት (ሁሉም የተዋቀሩ አስተዳዳሪዎች በራስ-ሰር ንቁ ናቸው)።",
     adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ኖት።",
-    adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ መልእክቶችን መቀበል ለመጀመር እባክዎ /adminstart ይላኩ።",
     resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
     help: `ℹ️ *በዚህ ቦት የሚገኙ ትዕዛዞች*
 
@@ -117,8 +115,7 @@ Then use the main menu buttons:
 • 🤖 መጠጥ ለማዘዝ – የማዘዣ ገጻችንን ይጎብኙ
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
-/adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
-/adminlist – የተዋቀሩ እና ንቁ አስተዳዳሪዎችን ይመልከቱ
+/adminlist – ሁሉንም የተዋቀሩ አስተዳዳሪዎች ይመልከቱ (ሁሉም በራስ-ሰር ንቁ ናቸው)
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
 /resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
   },
@@ -140,7 +137,6 @@ function escapeHtml(str: string): string {
 // ---------- Helper: Build clickable user ID with monospace formatting ----------
 function userLink(userId: number, firstName: string): string {
   const safeName = escapeHtml(firstName || `User ${userId}`);
-  // Display: 🆔 <code>123456789</code> (John) – clickable
   return `<a href="tg://user?id=${userId}">🆔 <code>${userId}</code> (${safeName})</a>`;
 }
 
@@ -169,14 +165,12 @@ async function forwardToAdmins(
   if (extraInfo.commentText) metadata += `💬 Comment: ${escapeHtml(extraInfo.commentText)}\n`;
   if (extraInfo.phone) metadata += `📞 Phone: ${escapeHtml(extraInfo.phone)}\n`;
 
-  // Append hashtags (as plain text, no HTML)
   if (category === "TECHNICAL_ISSUE") metadata += "\n#issue #REVOV #SATEV";
   else if (category === "COMMENT") metadata += "\n#comment #REVOV #SATEV";
 
   for (const adminId of activeAdmins) {
     try {
       if (!includeOriginalMessage) {
-        // Send only metadata
         const sent = await ctx.telegram.sendMessage(adminId, metadata, { parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('text' in msg && msg.text) {
@@ -209,19 +203,6 @@ async function forwardToAdmins(
       }
     } catch (err) {
       console.error(`Failed to forward to admin ${adminId}:`, err);
-    }
-  }
-}
-
-// ---------- Remind inactive admins ----------
-async function remindInactiveAdmins() {
-  for (const adminId of ADMIN_CHAT_IDS) {
-    if (!activeAdmins.has(adminId)) {
-      try {
-        await bot.telegram.sendMessage(adminId, texts.en.adminReminder);
-      } catch (err) {
-        console.error(`Could not send reminder to admin ${adminId}:`, err);
-      }
     }
   }
 }
@@ -274,27 +255,19 @@ bot.command("help", async (ctx) => {
 });
 
 // ---------- Admin commands ----------
+// /adminstart now just informs that admins are already active
 bot.command("adminstart", async (ctx) => {
   const userId = ctx.from.id;
   if (!ADMIN_CHAT_IDS.includes(userId)) return ctx.reply("❌ Unauthorized.");
-  if (activeAdmins.has(userId)) return ctx.reply(texts[ctx.session.language].adminAlready);
-  activeAdmins.add(userId);
   await ctx.reply(texts[ctx.session.language].adminStart);
 });
 
+// /adminlist shows all configured admins (all are active)
 bot.command("adminlist", async (ctx) => {
   if (!ADMIN_CHAT_IDS.includes(ctx.from.id)) return ctx.reply("❌ Unauthorized.");
-  let msg = "👑 <b>Configured Admins</b> (from ADMIN_CHAT_IDS):\n";
+  let msg = "👑 <b>All configured admins are automatically active:</b>\n\n";
   for (const id of ADMIN_CHAT_IDS) {
     msg += `• ${userLink(id, `Admin ${id}`)}\n`;
-  }
-  msg += `\n✅ <b>Active Admins</b> (have used /adminstart):\n`;
-  if (activeAdmins.size === 0) {
-    msg += "• None\n";
-  } else {
-    for (const id of activeAdmins) {
-      msg += `• ${userLink(id, `Admin ${id}`)}\n`;
-    }
   }
   await ctx.reply(msg, { parse_mode: "HTML" });
 });
@@ -406,7 +379,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (media is now forwarded) ----------
+// ---------- Generic message handler ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -418,14 +391,12 @@ async function handleUserMessage(ctx: MyContext) {
   const t = texts[lang];
   const step = ctx.session.flowStep;
 
-  // No active flow: treat as follow-up
   if (step === null) {
     await forwardToAdmins(ctx, "FOLLOW_UP", {});
     await ctx.reply(t.followUpConfirm);
     return;
   }
 
-  // ----- TECHNICAL ISSUE: description step -----
   if (step === "tech_description") {
     const msg = ctx.message;
     let description = "";
@@ -455,20 +426,12 @@ async function handleUserMessage(ctx: MyContext) {
     }
 
     ctx.session.tempData.description = description;
-
-    // Forward the actual content (text or media) to admins NOW
-    if (isMedia || ('text' in msg && msg.text)) {
-      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
-    } else {
-      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
-    }
-
+    await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
   }
 
-  // ----- TECHNICAL ISSUE: phone number step -----
   if (step === "tech_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -490,7 +453,6 @@ async function handleUserMessage(ctx: MyContext) {
     return;
   }
 
-  // ----- COMMENT: text step -----
   if (step === "comment_text") {
     const msg = ctx.message;
     let commentText = "";
@@ -520,19 +482,12 @@ async function handleUserMessage(ctx: MyContext) {
     }
 
     ctx.session.tempData.commentText = commentText;
-
-    if (isMedia || ('text' in msg && msg.text)) {
-      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
-    } else {
-      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
-    }
-
+    await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
     ctx.session.flowStep = "comment_phone";
     await ctx.reply(t.commentAskPhone);
     return;
   }
 
-  // ----- COMMENT: phone number step -----
   if (step === "comment_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -571,13 +526,15 @@ bot.catch((err, ctx) => {
   ctx.reply("An error occurred. Please try again later.").catch(console.error);
 });
 
-// ---------- Startup notification: automatically list admins and send to all configured admins ----------
+// ---------- Startup notification: automatically list admins ----------
 async function notifyAllAdminsOnStartup() {
   const startupMsg = "🤖 *RevoV Support Bot Started*\n\n" +
-                     "👑 *Configured admins* (from ADMIN_CHAT_IDS):\n" +
+                     "👑 *All configured admins are automatically active*\n" +
+                     "No need to send /adminstart. You will receive all user messages.\n\n" +
+                     "📋 *Configured admin IDs:*\n" +
                      ADMIN_CHAT_IDS.map(id => `• \`${id}\``).join("\n") +
-                     "\n\n✅ To start receiving user messages, each admin must send `/adminstart` to this bot.\n" +
-                     "ℹ️ Use `/adminlist` to see active admins.";
+                     "\n\nℹ️ Use `/adminlist` to see this list again.\n" +
+                     "Use `/reply <user_id> <msg>` or reply directly to forwarded messages.";
   for (const adminId of ADMIN_CHAT_IDS) {
     try {
       await bot.telegram.sendMessage(adminId, startupMsg, { parse_mode: "Markdown" });
@@ -615,7 +572,6 @@ if (isRender) {
 
   const server = app.listen(PORT, async () => {
     console.log(`🚀 Webhook server on port ${PORT}`);
-    // Send startup admin list after webhook is ready
     await notifyAllAdminsOnStartup();
   });
 
@@ -638,7 +594,7 @@ if (isRender) {
 } else {
   bot.launch().then(() => {
     console.log("🤖 Bot running in polling mode");
-    notifyAllAdminsOnStartup(); // Send startup admin list
+    notifyAllAdminsOnStartup();
   });
   process.once("SIGINT", () => bot.stop("SIGINT"));
   process.once("SIGTERM", () => bot.stop("SIGTERM"));
