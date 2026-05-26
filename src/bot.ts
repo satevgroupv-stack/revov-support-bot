@@ -51,7 +51,7 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
+    welcome: `Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ*`,
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
