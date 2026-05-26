@@ -46,7 +46,7 @@ interface MyContext extends Context {
   session: SessionData;
 }
 
-// ---------- Language texts ----------
+// ---------- Language texts (unchanged) ----------
 type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
@@ -81,7 +81,7 @@ Then use the main menu buttons:
 
 👑 *Admin Commands* (only for authorised admins)
 /adminstart – Register to receive user messages
-/adminlist – See which admins are active
+/adminlist – See configured and active admins
 /reply <user_id> <message> – Send a private reply to a user
 /resolve <user_id> – Send a resolution message to a user
 
@@ -118,7 +118,7 @@ Then use the main menu buttons:
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
 /adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
-/adminlist – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
+/adminlist – የተዋቀሩ እና ንቁ አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
 /resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
   },
@@ -127,7 +127,23 @@ Then use the main menu buttons:
 const replyMapping = new Map<number, number>();
 const bot = new Telegraf<MyContext>(BOT_TOKEN);
 
-// ---------- Helper: Forward any message to all active admins ----------
+// ---------- Helper: Escape HTML special characters ----------
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+// ---------- Helper: Build clickable user ID link (HTML) ----------
+function userLink(userId: number, firstName: string): string {
+  const safeName = escapeHtml(firstName || `User ${userId}`);
+  return `<a href="tg://user?id=${userId}">🆔 ${userId} (${safeName})</a>`;
+}
+
+// ---------- Helper: Forward any message to all active admins (with clickable user ID) ----------
 async function forwardToAdmins(
   ctx: MyContext,
   category: "TECHNICAL_ISSUE" | "COMMENT" | "FOLLOW_UP",
@@ -139,51 +155,55 @@ async function forwardToAdmins(
   const msg = ctx.message;
   if (!msg) return;
 
-  let metadata = `📢 NEW ${category}\n\n`;
-  metadata += `👤 User: ${user.first_name} ${user.last_name || ""} (@${user.username || "N/A"})\n`;
-  metadata += `🆔 ID: ${user.id}\n`;
-  metadata += `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n`;
-  metadata += `🕒 Time: ${new Date().toISOString()}\n\n`;
+  const userInfo = userLink(user.id, user.first_name);
+  const userDetails = `👤 <b>${escapeHtml(user.first_name)} ${escapeHtml(user.last_name || "")}</b>\n` +
+                      `📱 @${escapeHtml(user.username || "N/A")}\n` +
+                      `${userInfo}\n` +
+                      `🌐 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}\n` +
+                      `🕒 Time: ${new Date().toISOString()}`;
 
-  if (extraInfo.description) metadata += `📝 Issue Description: ${extraInfo.description}\n`;
-  if (extraInfo.commentText) metadata += `💬 Comment: ${extraInfo.commentText}\n`;
-  if (extraInfo.phone) metadata += `📞 Phone: ${extraInfo.phone}\n`;
+  let metadata = `📢 <b>NEW ${category}</b>\n\n${userDetails}\n\n`;
 
-  // Append hashtag for filtering
+  if (extraInfo.description) metadata += `📝 Issue Description: ${escapeHtml(extraInfo.description)}\n`;
+  if (extraInfo.commentText) metadata += `💬 Comment: ${escapeHtml(extraInfo.commentText)}\n`;
+  if (extraInfo.phone) metadata += `📞 Phone: ${escapeHtml(extraInfo.phone)}\n`;
+
+  // Append hashtags (as plain text, no HTML)
   if (category === "TECHNICAL_ISSUE") metadata += "\n#issue #REVOV #SATEV";
   else if (category === "COMMENT") metadata += "\n#comment #REVOV #SATEV";
 
   for (const adminId of activeAdmins) {
     try {
       if (!includeOriginalMessage) {
-        // Send only metadata (e.g., for phone number step)
-        const sent = await ctx.telegram.sendMessage(adminId, metadata);
+        // Send only metadata
+        const sent = await ctx.telegram.sendMessage(adminId, metadata, { parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('text' in msg && msg.text) {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n" + msg.text);
+        const fullMsg = metadata + `\n📨 <b>User's message:</b>\n${escapeHtml(msg.text)}`;
+        const sent = await ctx.telegram.sendMessage(adminId, fullMsg, { parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('photo' in msg && msg.photo) {
         const photo = msg.photo[msg.photo.length - 1];
-        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption });
+        const caption = metadata + (msg.caption ? `\n📝 Caption: ${escapeHtml(msg.caption)}` : "");
+        const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption, parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('voice' in msg && msg.voice) {
-        const sent = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata });
+        const sent = await ctx.telegram.sendVoice(adminId, msg.voice.file_id, { caption: metadata, parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
         if (msg.caption) {
-          const sentCap = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${msg.caption}`);
+          const sentCap = await ctx.telegram.sendMessage(adminId, `📝 Caption: ${escapeHtml(msg.caption)}`, { parse_mode: "HTML" });
           replyMapping.set(sentCap.message_id, user.id);
         }
       } else if ('video' in msg && msg.video) {
-        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption });
+        const caption = metadata + (msg.caption ? `\n📝 Caption: ${escapeHtml(msg.caption)}` : "");
+        const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption, parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else if ('document' in msg && msg.document) {
-        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
-        const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption });
+        const caption = metadata + (msg.caption ? `\n📝 Caption: ${escapeHtml(msg.caption)}` : "");
+        const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption, parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       } else {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\nUnsupported message type");
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n❌ Unsupported message type", { parse_mode: "HTML" });
         replyMapping.set(sent.message_id, user.id);
       }
     } catch (err) {
@@ -207,10 +227,14 @@ async function remindInactiveAdmins() {
 
 // ---------- Notify admins when a reply is sent ----------
 async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: string, targetUserId: number, messageText: string) {
-  const notification = `📨 ADMIN REPLY SENT\n\n👤 Admin: ${replyingAdminName} (ID: ${replyingAdminId})\n👤 To User ID: ${targetUserId}\n📝 Message: ${messageText}\n🕒 Sent at: ${new Date().toISOString()}`;
+  const notification = `📨 <b>ADMIN REPLY SENT</b>\n\n` +
+                       `👤 Admin: ${escapeHtml(replyingAdminName)} (ID: ${replyingAdminId})\n` +
+                       `👤 To User: ${userLink(targetUserId, `User ${targetUserId}`)}\n` +
+                       `📝 Message: ${escapeHtml(messageText)}\n` +
+                       `🕒 Sent at: ${new Date().toISOString()}`;
   for (const adminId of activeAdmins) {
     try {
-      await bot.telegram.sendMessage(adminId, notification);
+      await bot.telegram.sendMessage(adminId, notification, { parse_mode: "HTML" });
     } catch (err) {
       console.error(`Failed to send reply notification to admin ${adminId}:`, err);
     }
@@ -259,7 +283,19 @@ bot.command("adminstart", async (ctx) => {
 
 bot.command("adminlist", async (ctx) => {
   if (!ADMIN_CHAT_IDS.includes(ctx.from.id)) return ctx.reply("❌ Unauthorized.");
-  await ctx.reply(`Active admins: ${Array.from(activeAdmins).join(", ") || "none"}`);
+  let msg = "👑 <b>Configured Admins</b> (from ADMIN_CHAT_IDS):\n";
+  for (const id of ADMIN_CHAT_IDS) {
+    msg += `• ${userLink(id, `Admin ${id}`)}\n`;
+  }
+  msg += `\n✅ <b>Active Admins</b> (have used /adminstart):\n`;
+  if (activeAdmins.size === 0) {
+    msg += "• None\n";
+  } else {
+    for (const id of activeAdmins) {
+      msg += `• ${userLink(id, `Admin ${id}`)}\n`;
+    }
+  }
+  await ctx.reply(msg, { parse_mode: "HTML" });
 });
 
 bot.command("reply", async (ctx) => {
@@ -369,7 +405,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (FIXED: media is now forwarded) ----------
+// ---------- Generic message handler (media is now forwarded) ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -394,7 +430,6 @@ async function handleUserMessage(ctx: MyContext) {
     let description = "";
     let isMedia = false;
 
-    // Detect if the user sent media (photo, voice, video, document)
     if ('text' in msg && msg.text) {
       description = msg.text;
       isMedia = false;
@@ -418,19 +453,15 @@ async function handleUserMessage(ctx: MyContext) {
       isMedia = true;
     }
 
-    // Store the descriptive label for later (phone step)
     ctx.session.tempData.description = description;
 
-    // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
+    // Forward the actual content (text or media) to admins NOW
     if (isMedia || ('text' in msg && msg.text)) {
-      // Include the original message (photo, voice, video, or text) along with metadata
       await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
     } else {
-      // Fallback (should not happen)
       await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
     }
 
-    // Move to phone step
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
@@ -447,7 +478,6 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward ONLY metadata (with phone number) – the media/text was already sent
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
       description: ctx.session.tempData.description,
       phone: phone,
@@ -490,7 +520,6 @@ async function handleUserMessage(ctx: MyContext) {
 
     ctx.session.tempData.commentText = commentText;
 
-    // Forward the actual comment (text or media) to admins NOW
     if (isMedia || ('text' in msg && msg.text)) {
       await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
     } else {
@@ -513,7 +542,6 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
-    // Forward ONLY metadata with phone (comment already sent)
     await forwardToAdmins(ctx, "COMMENT", {
       commentText: ctx.session.tempData.commentText,
       phone: phone,
@@ -542,6 +570,22 @@ bot.catch((err, ctx) => {
   ctx.reply("An error occurred. Please try again later.").catch(console.error);
 });
 
+// ---------- Startup notification: automatically list admins and send to all configured admins ----------
+async function notifyAllAdminsOnStartup() {
+  const startupMsg = "🤖 *RevoV Support Bot Started*\n\n" +
+                     "👑 *Configured admins* (from ADMIN_CHAT_IDS):\n" +
+                     ADMIN_CHAT_IDS.map(id => `• \`${id}\``).join("\n") +
+                     "\n\n✅ To start receiving user messages, each admin must send `/adminstart` to this bot.\n" +
+                     "ℹ️ Use `/adminlist` to see active admins.";
+  for (const adminId of ADMIN_CHAT_IDS) {
+    try {
+      await bot.telegram.sendMessage(adminId, startupMsg, { parse_mode: "Markdown" });
+    } catch (err) {
+      console.error(`Could not send startup message to admin ${adminId}:`, err);
+    }
+  }
+}
+
 // ---------- Webhook / Polling with keep‑alive (self‑ping) ----------
 const isRender = !!process.env.RENDER;
 if (isRender) {
@@ -568,8 +612,10 @@ if (isRender) {
     }
   });
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     console.log(`🚀 Webhook server on port ${PORT}`);
+    // Send startup admin list after webhook is ready
+    await notifyAllAdminsOnStartup();
   });
 
   const publicHost = process.env.RENDER_EXTERNAL_HOSTNAME;
@@ -589,8 +635,10 @@ if (isRender) {
     console.warn("⚠️ RENDER_EXTERNAL_HOSTNAME not set, self‑ping disabled");
   }
 } else {
-  bot.launch();
-  console.log("🤖 Bot running in polling mode (no keep‑alive needed)");
+  bot.launch().then(() => {
+    console.log("🤖 Bot running in polling mode");
+    notifyAllAdminsOnStartup(); // Send startup admin list
+  });
   process.once("SIGINT", () => bot.stop("SIGINT"));
   process.once("SIGTERM", () => bot.stop("SIGTERM"));
 }
