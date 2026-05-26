@@ -22,23 +22,23 @@ if (ADMIN_CHAT_IDS.length === 0) {
   process.exit(1);
 }
 
-// ---------- Active admins (those who sent /admin_start) ----------
+// ---------- Active admins ----------
 let activeAdmins: Set<number> = new Set();
 
 // ---------- Session state ----------
 type FlowStep = 
-  | null                           // main menu
-  | "tech_description"             // waiting for description
-  | "tech_phone"                   // waiting for phone number
-  | "comment_text"                 // waiting for comment text
-  | "comment_phone";               // waiting for optional phone
+  | null
+  | "tech_description"
+  | "tech_phone"
+  | "comment_text"
+  | "comment_phone";
 
 interface SessionData {
   language: "en" | "am";
   flowStep: FlowStep;
   tempData: {
-    description?: string;   // for tech issue
-    commentText?: string;   // for comment
+    description?: string;
+    commentText?: string;
   };
 }
 
@@ -53,6 +53,9 @@ const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
     welcome: "Welcome to RevoV Vending Machine Support! Please choose your language:",
     mainMenu: "Main Menu – what would you like to do?",
+    mainMenuComment: "💬 Send a Comment",
+    mainMenuTech: "🛠 Report Technical Issue",
+    mainMenuOrder: "🤖 Order a Drink",
     techAskDescription: "🛠 Please describe the technical issue in detail (text, photo, voice, or video):",
     techAskPhone: "📞 Please share your phone number so we can contact you:",
     commentAskText: "💬 Please send your comment (text, photo, voice, or video):",
@@ -63,7 +66,6 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     invalidInput: "❌ Invalid input. Please try again.",
     skipPhone: "⏭️ Phone number skipped.",
     error: "❌ Something went wrong. Please try again.",
-    // Admin messages
     adminStart: "✅ You are now registered as an active admin. You will receive all user messages.",
     adminAlready: "ℹ️ You are already an active admin.",
     adminReminder: "🔔 Admin reminder: please send /admin_start to this bot to start receiving user messages.",
@@ -72,6 +74,9 @@ const texts: Record<LanguageKey, Record<string, string>> = {
   am: {
     welcome: "እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
     mainMenu: "ዋና ምናሌ – ምን ማድረግ ይፈልጋሉ?",
+    mainMenuComment: "💬 አስተያየት ይላኩ",
+    mainMenuTech: "🛠 ቴክኒካል ችግር ያመልክቱ",
+    mainMenuOrder: "🤖 መጠጥ ያዝዙ",
     techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
     techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
     commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
@@ -173,16 +178,16 @@ async function notifyAdminsOfReply(replyingAdminId: number, replyingAdminName: s
   }
 }
 
-// ---------- Show main menu ----------
+// ---------- Show main menu with translated buttons ----------
 async function showMainMenu(ctx: MyContext) {
   const lang = ctx.session.language;
   const t = texts[lang];
   await ctx.reply(t.mainMenu, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "💬 Send a Comment", callback_data: "menu_comment" }],
-        [{ text: "🛠 Report Technical Issue", callback_data: "menu_tech" }],
-        [{ text: "🤖 Vending Machine Purchase", url: "https://example.com/order" }], // 🔁 CHANGE THIS URL
+        [{ text: t.mainMenuComment, callback_data: "menu_comment" }],
+        [{ text: t.mainMenuTech, callback_data: "menu_tech" }],
+        [{ text: t.mainMenuOrder, url: "https://satev.vercel.app/mch_sk_4740ed6ce010137901ba3580ff6cd85e" }],
       ],
     },
   });
@@ -318,9 +323,8 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (text, photo, voice, video, document) ----------
+// ---------- Generic message handler ----------
 async function handleUserMessage(ctx: MyContext) {
-  // Guard: ensure chat and message exist
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
     return;
@@ -331,16 +335,13 @@ async function handleUserMessage(ctx: MyContext) {
   const t = texts[lang];
   const step = ctx.session.flowStep;
 
-  // If no active flow, treat as follow-up
   if (step === null) {
     await forwardToAdmins(ctx, "FOLLOW_UP", {});
     await ctx.reply(t.followUpConfirm);
     return;
   }
 
-  // Handle each flow step
   if (step === "tech_description") {
-    // Store the description (can be text, photo, voice, etc.)
     const msg = ctx.message;
     let description = "";
     if ('text' in msg && msg.text) description = msg.text;
