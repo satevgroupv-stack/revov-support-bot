@@ -51,7 +51,7 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:\n እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
+    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
@@ -68,7 +68,7 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     error: "❌ Something went wrong. Please try again.",
     adminStart: "✅ You are now registered as an active admin. You will receive all user messages.",
     adminAlready: "ℹ️ You are already an active admin.",
-    adminReminder: "🔔 Admin reminder: please send /admin_start to this bot to start receiving user messages.",
+    adminReminder: "🔔 Admin reminder: please send /adminstart to this bot to start receiving user messages.",
     resolutionMsg: "✅ Your issue has been resolved. Thank you for using RevoV!",
     help: `ℹ️ *Available Commands*
 
@@ -80,50 +80,50 @@ Then use the main menu buttons:
 • 🤖 Order a Drink – Visit our order page
 
 👑 *Admin Commands* (only for authorised admins)
-/admin_start – Register to receive user messages
-/admin_list – See which admins are active
+/adminstart – Register to receive user messages
+/adminlist – See which admins are active
 /reply <user_id> <message> – Send a private reply to a user
 /resolve <user_id> – Send a resolution message to a user
 
 💡 *Tip*: As an admin, you can also reply directly to any forwarded user message – the bot will automatically send your reply to that user.`,
   },
-am: {
-  welcome: "እንኳን ወደ RevoV ራስ-ሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
-  mainMenu: "ዋና ማውጫ – ምን ማድረግ ይፈልጋሉ?",
-  mainMenuComment: "💬 አስተያየት ይላኩን",
-  mainMenuTech: "🛠 ቴክኒካል ችግር ለማመልከት",
-  mainMenuOrder: "🤖 መጠጥ ያዝዙ",
-  techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ መጠቀም ይችላሉ)፦",
-  techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
-  commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
-  commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
-  thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
-  thanksComment: "*✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።*",
-  followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
-  invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
-  skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
-  error: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
-  adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ መልእክቶች ይቀበላሉ።",
-  adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ኖት።",
-  adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ መልእክቶችን መቀበል ለመጀመር እባክዎ /admin_start ይላኩ።",
-  resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
-  help: `ℹ️ *በዚህ ቦት የሚገኙ ትዕዛዞች*
+  am: {
+    welcome: "እንኳን ወደ RevoV ራስ-ሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
+    mainMenu: "ዋና ማውጫ – ምን ማድረግ ይፈልጋሉ?",
+    mainMenuComment: "💬 አስተያየት ይላኩን",
+    mainMenuTech: "🛠 ቴክኒካል ችግር ለማመልከት",
+    mainMenuOrder: "🤖 መጠጥ ያዝዙ",
+    techAskDescription: "🛠 እባክዎ ቴክኒካል ችግሩን በዝርዝር ይግለጹ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ መጠቀም ይችላሉ)፦",
+    techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
+    commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
+    commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
+    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
+    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።",
+    followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
+    invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
+    skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
+    error: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።",
+    adminStart: "✅ እንደ ንቁ አስተዳዳሪ ተመዝግበዋል። ሁሉንም የተጠቃሚ መልእክቶች ይቀበላሉ።",
+    adminAlready: "ℹ️ ቀድሞውንም ንቁ አስተዳዳሪ ኖት።",
+    adminReminder: "🔔 ለአስተዳዳሪ ማሳሰቢያ፦ የተጠቃሚ መልእክቶችን መቀበል ለመጀመር እባክዎ /adminstart ይላኩ።",
+    resolutionMsg: "✅ ችግርዎ ተፈትቷል። RevoV ስለተጠቀሙ እናመሰግናለን!",
+    help: `ℹ️ *በዚህ ቦት የሚገኙ ትዕዛዞች*
 
 👤 *የተጠቃሚ ትዕዛዞች*
 /start – ቦቱን እንደገና ይጀምሩ እና ቋንቋ ይምረጡ
 ከዚያ በዋና ምናሌው ውስጥ ያሉትን አዝራሮች ይጠቀሙ፦
 • 💬 አስተያየት ይላኩ – አስተያየት ወይም ጥያቄ ያጋሩ
 • 🛠 ቴክኒካል ችግር ያመልክቱ – ችግሩን ይግለጹ (ስልክ ቁጥር እንጠይቃለን)
-• 🤖 መጠጥ ያዝዙ – የማዘዣ ገጻችንን ይጎብኙ
+• 🤖 መጠጥ ለማዘዝ – የማዘዣ ገጻችንን ይጎብኙ
 
 👑 *የአስተዳዳሪ ትዕዛዞች* (ለተፈቀዱ አስተዳዳሪዎች ብቻ)
-/admin_start – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
-/admin_list – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
+/adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
+/adminlist – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
 /resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ
 
 💡 *ምክር*: እንደ አስተዳዳሪ፣ ለእርስዎ በተላከ ማንኛውም የተጠቃሚ መልእክት በቀጥታ መልስ መስጠት ይችላሉ – ቦቱ ምላሽዎን ለዚያ ተጠቃሚ በራስ-ሰር ይልካል።`
-},
+  },
 };
 
 const replyMapping = new Map<number, number>();
@@ -133,7 +133,8 @@ const bot = new Telegraf<MyContext>(BOT_TOKEN);
 async function forwardToAdmins(
   ctx: MyContext,
   category: "TECHNICAL_ISSUE" | "COMMENT" | "FOLLOW_UP",
-  extraInfo: { description?: string; phone?: string; commentText?: string }
+  extraInfo: { description?: string; phone?: string; commentText?: string },
+  includeOriginalMessage: boolean = true   // <-- NEW: control duplication
 ) {
   const user = ctx.from;
   if (!user) return;
@@ -150,14 +151,22 @@ async function forwardToAdmins(
   if (extraInfo.commentText) metadata += `💬 Comment: ${extraInfo.commentText}\n`;
   if (extraInfo.phone) metadata += `📞 Phone: ${extraInfo.phone}\n`;
 
+  // Append hashtag for filtering
+  if (category === "TECHNICAL_ISSUE") metadata += "\n#issue";
+  else if (category === "COMMENT") metadata += "\n#comment";
+
   for (const adminId of activeAdmins) {
     try {
-      if ('text' in msg && msg.text) {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + msg.text);
+      if (!includeOriginalMessage) {
+        // Send only metadata (e.g., for phone number step)
+        const sent = await ctx.telegram.sendMessage(adminId, metadata);
+        replyMapping.set(sent.message_id, user.id);
+      } else if ('text' in msg && msg.text) {
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\n" + msg.text);
         replyMapping.set(sent.message_id, user.id);
       } else if ('photo' in msg && msg.photo) {
         const photo = msg.photo[msg.photo.length - 1];
-        const caption = metadata + (msg.caption || "");
+        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
         const sent = await ctx.telegram.sendPhoto(adminId, photo.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else if ('voice' in msg && msg.voice) {
@@ -168,15 +177,15 @@ async function forwardToAdmins(
           replyMapping.set(sentCap.message_id, user.id);
         }
       } else if ('video' in msg && msg.video) {
-        const caption = metadata + (msg.caption || "");
+        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
         const sent = await ctx.telegram.sendVideo(adminId, msg.video.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else if ('document' in msg && msg.document) {
-        const caption = metadata + (msg.caption || "");
+        const caption = metadata + (msg.caption ? "\n📝 Caption: " + msg.caption : "");
         const sent = await ctx.telegram.sendDocument(adminId, msg.document.file_id, { caption });
         replyMapping.set(sent.message_id, user.id);
       } else {
-        const sent = await ctx.telegram.sendMessage(adminId, metadata + "Unsupported message type");
+        const sent = await ctx.telegram.sendMessage(adminId, metadata + "\nUnsupported message type");
         replyMapping.set(sent.message_id, user.id);
       }
     } catch (err) {
@@ -242,7 +251,7 @@ bot.command("help", async (ctx) => {
 });
 
 // ---------- Admin commands ----------
-bot.command("admin_start", async (ctx) => {
+bot.command("adminstart", async (ctx) => {
   const userId = ctx.from.id;
   if (!ADMIN_CHAT_IDS.includes(userId)) return ctx.reply("❌ Unauthorized.");
   if (activeAdmins.has(userId)) return ctx.reply(texts[ctx.session.language].adminAlready);
@@ -250,7 +259,7 @@ bot.command("admin_start", async (ctx) => {
   await ctx.reply(texts[ctx.session.language].adminStart);
 });
 
-bot.command("admin_list", async (ctx) => {
+bot.command("adminlist", async (ctx) => {
   if (!ADMIN_CHAT_IDS.includes(ctx.from.id)) return ctx.reply("❌ Unauthorized.");
   await ctx.reply(`Active admins: ${Array.from(activeAdmins).join(", ") || "none"}`);
 });
@@ -362,7 +371,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler ----------
+// ---------- Generic message handler (improved media descriptions) ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -383,10 +392,24 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "tech_description") {
     const msg = ctx.message;
     let description = "";
-    if ('text' in msg && msg.text) description = msg.text;
-    else if ('caption' in msg && msg.caption) description = msg.caption;
-    else description = "[Non‑text media]";
-    
+
+    // Generate meaningful description instead of "[Non‑text media]"
+    if ('text' in msg && msg.text) {
+      description = msg.text;
+    } else if ('caption' in msg && msg.caption) {
+      description = msg.caption;
+    } else if ('photo' in msg) {
+      description = "📷 Photo (see below)";
+    } else if ('voice' in msg) {
+      description = "🎤 Voice message";
+    } else if ('video' in msg) {
+      description = "🎥 Video";
+    } else if ('document' in msg) {
+      description = "📄 Document";
+    } else {
+      description = "[Unsupported media type]";
+    }
+
     ctx.session.tempData.description = description;
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
@@ -403,10 +426,11 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
+    // Forward WITHOUT the original message to avoid duplication
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
       description: ctx.session.tempData.description,
       phone: phone,
-    });
+    }, false);   // <-- Do not resend the phone number as a separate message
     await ctx.reply(t.thanksTech);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
@@ -417,10 +441,24 @@ async function handleUserMessage(ctx: MyContext) {
   if (step === "comment_text") {
     const msg = ctx.message;
     let commentText = "";
-    if ('text' in msg && msg.text) commentText = msg.text;
-    else if ('caption' in msg && msg.caption) commentText = msg.caption;
-    else commentText = "[Non‑text media]";
-    
+
+    // Same improvement: meaningful media labels
+    if ('text' in msg && msg.text) {
+      commentText = msg.text;
+    } else if ('caption' in msg && msg.caption) {
+      commentText = msg.caption;
+    } else if ('photo' in msg) {
+      commentText = "📷 Photo (see below)";
+    } else if ('voice' in msg) {
+      commentText = "🎤 Voice message";
+    } else if ('video' in msg) {
+      commentText = "🎥 Video";
+    } else if ('document' in msg) {
+      commentText = "📄 Document";
+    } else {
+      commentText = "[Unsupported media type]";
+    }
+
     ctx.session.tempData.commentText = commentText;
     ctx.session.flowStep = "comment_phone";
     await ctx.reply(t.commentAskPhone);
@@ -437,10 +475,11 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
+    // Forward with includeOriginalMessage = false to avoid duplication
     await forwardToAdmins(ctx, "COMMENT", {
       commentText: ctx.session.tempData.commentText,
       phone: phone,
-    });
+    }, false);
     await ctx.reply(t.thanksComment);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
@@ -465,7 +504,7 @@ bot.catch((err, ctx) => {
   ctx.reply("An error occurred. Please try again later.").catch(console.error);
 });
 
-// ---------- Webhook / Polling ----------
+// ---------- Webhook / Polling with keep‑alive (self‑ping) ----------
 const isRender = !!process.env.RENDER;
 if (isRender) {
   const PORT = parseInt(process.env.PORT || "3000");
@@ -473,8 +512,15 @@ if (isRender) {
   bot.telegram.setWebhook(WEBHOOK_URL).then(() => {
     console.log(`✅ Webhook set to ${WEBHOOK_URL}`);
   }).catch(console.error);
+
   const app = express();
   app.use(express.json());
+
+  // Health endpoint for self-ping
+  app.get("/health", (req, res) => {
+    res.status(200).send("OK");
+  });
+
   app.post("/webhook", async (req, res) => {
     try {
       await bot.handleUpdate(req.body);
@@ -484,10 +530,31 @@ if (isRender) {
       res.sendStatus(500);
     }
   });
-  app.listen(PORT, () => console.log(`🚀 Webhook server on port ${PORT}`));
+
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Webhook server on port ${PORT}`);
+  });
+
+  // Self‑ping every 60 seconds to keep the service alive on Render free tier
+  const publicHost = process.env.RENDER_EXTERNAL_HOSTNAME;
+  if (publicHost) {
+    const pingUrl = `https://${publicHost}/health`;
+    console.log(`🔄 Self‑ping enabled: ${pingUrl} every 60 seconds`);
+    setInterval(async () => {
+      try {
+        const response = await fetch(pingUrl);
+        if (!response.ok) console.warn(`Self‑ping returned ${response.status}`);
+        else console.log("💓 Self‑ping successful");
+      } catch (err) {
+        console.error("Self‑ping failed:", err);
+      }
+    }, 60000); // every minute
+  } else {
+    console.warn("⚠️ RENDER_EXTERNAL_HOSTNAME not set, self‑ping disabled");
+  }
 } else {
   bot.launch();
-  console.log("🤖 Bot running in polling mode");
+  console.log("🤖 Bot running in polling mode (no keep‑alive needed)");
   process.once("SIGINT", () => bot.stop("SIGINT"));
   process.once("SIGTERM", () => bot.stop("SIGTERM"));
 }
