@@ -134,7 +134,7 @@ async function forwardToAdmins(
   ctx: MyContext,
   category: "TECHNICAL_ISSUE" | "COMMENT" | "FOLLOW_UP",
   extraInfo: { description?: string; phone?: string; commentText?: string },
-  includeOriginalMessage: boolean = true   // <-- NEW: control duplication
+  includeOriginalMessage: boolean = true
 ) {
   const user = ctx.from;
   if (!user) return;
@@ -371,7 +371,7 @@ bot.on(message("text"), async (ctx, next) => {
   await next();
 });
 
-// ---------- Generic message handler (improved media descriptions) ----------
+// ---------- Generic message handler (FIXED: media is now forwarded) ----------
 async function handleUserMessage(ctx: MyContext) {
   if (!ctx.chat || !ctx.message) {
     console.error("Missing chat or message in update");
@@ -383,39 +383,62 @@ async function handleUserMessage(ctx: MyContext) {
   const t = texts[lang];
   const step = ctx.session.flowStep;
 
+  // No active flow: treat as follow-up
   if (step === null) {
     await forwardToAdmins(ctx, "FOLLOW_UP", {});
     await ctx.reply(t.followUpConfirm);
     return;
   }
 
+  // ----- TECHNICAL ISSUE: description step -----
   if (step === "tech_description") {
     const msg = ctx.message;
     let description = "";
+    let isMedia = false;
 
-    // Generate meaningful description instead of "[Non‑text media]"
+    // Detect if the user sent media (photo, voice, video, document)
     if ('text' in msg && msg.text) {
       description = msg.text;
+      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       description = msg.caption;
+      isMedia = true;
     } else if ('photo' in msg) {
       description = "📷 Photo (see below)";
+      isMedia = true;
     } else if ('voice' in msg) {
       description = "🎤 Voice message";
+      isMedia = true;
     } else if ('video' in msg) {
       description = "🎥 Video";
+      isMedia = true;
     } else if ('document' in msg) {
       description = "📄 Document";
+      isMedia = true;
     } else {
       description = "[Unsupported media type]";
+      isMedia = true;
     }
 
+    // Store the descriptive label for later (phone step)
     ctx.session.tempData.description = description;
+
+    // FORWARD THE ACTUAL CONTENT (text or media) to admins NOW
+    if (isMedia || ('text' in msg && msg.text)) {
+      // Include the original message (photo, voice, video, or text) along with metadata
+      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
+    } else {
+      // Fallback (should not happen)
+      await forwardToAdmins(ctx, "TECHNICAL_ISSUE", { description }, true);
+    }
+
+    // Move to phone step
     ctx.session.flowStep = "tech_phone";
     await ctx.reply(t.techAskPhone);
     return;
   }
 
+  // ----- TECHNICAL ISSUE: phone number step -----
   if (step === "tech_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -426,11 +449,11 @@ async function handleUserMessage(ctx: MyContext) {
       await ctx.reply(t.invalidInput);
       return;
     }
-    // Forward WITHOUT the original message to avoid duplication
+    // Forward ONLY metadata (with phone number) – the media/text was already sent
     await forwardToAdmins(ctx, "TECHNICAL_ISSUE", {
       description: ctx.session.tempData.description,
       phone: phone,
-    }, false);   // <-- Do not resend the phone number as a separate message
+    }, false);
     await ctx.reply(t.thanksTech);
     ctx.session.flowStep = null;
     ctx.session.tempData = {};
@@ -438,33 +461,50 @@ async function handleUserMessage(ctx: MyContext) {
     return;
   }
 
+  // ----- COMMENT: text step -----
   if (step === "comment_text") {
     const msg = ctx.message;
     let commentText = "";
+    let isMedia = false;
 
-    // Same improvement: meaningful media labels
     if ('text' in msg && msg.text) {
       commentText = msg.text;
+      isMedia = false;
     } else if ('caption' in msg && msg.caption) {
       commentText = msg.caption;
+      isMedia = true;
     } else if ('photo' in msg) {
       commentText = "📷 Photo (see below)";
+      isMedia = true;
     } else if ('voice' in msg) {
       commentText = "🎤 Voice message";
+      isMedia = true;
     } else if ('video' in msg) {
       commentText = "🎥 Video";
+      isMedia = true;
     } else if ('document' in msg) {
       commentText = "📄 Document";
+      isMedia = true;
     } else {
       commentText = "[Unsupported media type]";
+      isMedia = true;
     }
 
     ctx.session.tempData.commentText = commentText;
+
+    // Forward the actual comment (text or media) to admins NOW
+    if (isMedia || ('text' in msg && msg.text)) {
+      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
+    } else {
+      await forwardToAdmins(ctx, "COMMENT", { commentText }, true);
+    }
+
     ctx.session.flowStep = "comment_phone";
     await ctx.reply(t.commentAskPhone);
     return;
   }
 
+  // ----- COMMENT: phone number step -----
   if (step === "comment_phone") {
     if (!('text' in ctx.message)) {
       await ctx.reply(t.invalidInput);
@@ -475,7 +515,7 @@ async function handleUserMessage(ctx: MyContext) {
       phone = "";
       await ctx.reply(t.skipPhone);
     }
-    // Forward with includeOriginalMessage = false to avoid duplication
+    // Forward ONLY metadata with phone (comment already sent)
     await forwardToAdmins(ctx, "COMMENT", {
       commentText: ctx.session.tempData.commentText,
       phone: phone,
@@ -516,7 +556,6 @@ if (isRender) {
   const app = express();
   app.use(express.json());
 
-  // Health endpoint for self-ping
   app.get("/health", (req, res) => {
     res.status(200).send("OK");
   });
@@ -535,7 +574,6 @@ if (isRender) {
     console.log(`🚀 Webhook server on port ${PORT}`);
   });
 
-  // Self‑ping every 60 seconds to keep the service alive on Render free tier
   const publicHost = process.env.RENDER_EXTERNAL_HOSTNAME;
   if (publicHost) {
     const pingUrl = `https://${publicHost}/health`;
@@ -548,7 +586,7 @@ if (isRender) {
       } catch (err) {
         console.error("Self‑ping failed:", err);
       }
-    }, 60000); // every minute
+    }, 60000);
   } else {
     console.warn("⚠️ RENDER_EXTERNAL_HOSTNAME not set, self‑ping disabled");
   }
