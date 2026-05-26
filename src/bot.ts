@@ -51,8 +51,7 @@ type LanguageKey = "en" | "am";
 
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
-    welcome: "*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ፦*",
-    welcome: `Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ*`,
+    welcome: `*Welcome to RevoV Vending Machine Support! Please choose your language:*\n *እንኳን ወደ RevoVending ማሽን በደህና መጡ! እባክዎ ቋንቋ ይምረጡ *`,
     mainMenu: "Main Menu – what would you like to do?",
     mainMenuComment: "💬 Send a Comment",
     mainMenuTech: "🛠 Report Technical Issue",
@@ -61,8 +60,8 @@ const texts: Record<LanguageKey, Record<string, string>> = {
     techAskPhone: "📞 Please share your phone number so we can contact you:",
     commentAskText: "💬 Please send your comment (text, photo, voice, or video):",
     commentAskPhone: "📞 Please share your phone number (optional). Type 'skip' to skip:",
-    thanksTech: "✅ Thank you! Your technical issue has been forwarded to our support team.",
-    thanksComment: "✅ Thank you! Your comment has been forwarded to our support team.",
+    thanksTech: `✅ Thank you! Your technical issue has been forwarded to our support team. \nJoin The channel @Satev_Group #SATEV`,
+    thanksComment: `✅ Thank you! Your comment has been forwarded to our support team. \nJoin The channel @Satev_Group #SATEV`,
     followUpConfirm: "📨 Your follow‑up message has been sent to the support team.",
     invalidInput: "❌ Invalid input. Please try again.",
     skipPhone: "⏭️ Phone number skipped.",
@@ -98,8 +97,8 @@ Then use the main menu buttons:
     techAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (እንድናገኝዎት)፦",
     commentAskText: "💬 እባክዎ አስተያየትዎን ይላኩ (ጽሑፍ፣ ፎቶ፣ ድምጽ ወይም ቪዲዮ)፦",
     commentAskPhone: "📞 እባክዎ ስልክ ቁጥርዎን ያጋሩ (የግዴታ አይደለም ነው)። ለማለፍ 'skip' ብለው ይላኩ፦",
-    thanksTech: "✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል።",
-    thanksComment: "✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።",
+    thanksTech: `✅ እናመሰግናለን! ቴክኒካል ችግርዎ ለድጋፍ ቡድናችን ተልኳል። \nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV`,
+    thanksComment: `✅ እናመሰግናለን! አስተያየትዎ ለድጋፍ ቡድናችን ተልኳል።\nቻናላችንን ይቀላቀሉ @Satev_Group #SATEV`,
     followUpConfirm: "📨 ተጨማሪ መልእክትዎ ተልኳል።",
     invalidInput: "❌ ልክ ያልሆነ ቁልፍ ተጭነዋል። እባክዎ እንደገና ይሞክሩ።",
     skipPhone: "⏭️ ስልክ ቁጥር አላኩም።",
@@ -121,9 +120,7 @@ Then use the main menu buttons:
 /adminstart – የተጠቃሚ መልእክቶችን ለመቀበል ይመዝገቡ
 /adminlist – ንቁ የሆኑ አስተዳዳሪዎችን ይመልከቱ
 /reply <user_id> <message> – ለተጠቃሚ የግል ምላሽ ይላኩ
-/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ
-
-💡 *ምክር*: እንደ አስተዳዳሪ፣ ለእርስዎ በተላከ ማንኛውም የተጠቃሚ መልእክት በቀጥታ መልስ መስጠት ይችላሉ – ቦቱ ምላሽዎን ለዚያ ተጠቃሚ በራስ-ሰር ይልካል።`
+/resolve <user_id> – ለተጠቃሚ ችግሩ መፈታቱን የሚገልጽ መልእክት ይላኩ`
   },
 };
 
@@ -153,8 +150,8 @@ async function forwardToAdmins(
   if (extraInfo.phone) metadata += `📞 Phone: ${extraInfo.phone}\n`;
 
   // Append hashtag for filtering
-  if (category === "TECHNICAL_ISSUE") metadata += "\n#issue";
-  else if (category === "COMMENT") metadata += "\n#comment";
+  if (category === "TECHNICAL_ISSUE") metadata += "\n#issue #REVOV #SATEV";
+  else if (category === "COMMENT") metadata += "\n#comment #REVOV #SATEV";
 
   for (const adminId of activeAdmins) {
     try {
