@@ -12,11 +12,10 @@ if (!BOT_TOKEN || !SUPPORT_GROUP_ID) {
 
 // ---------- Conversation state ----------
 interface SessionData {
-  step: "language" | "phone" | "timeDay" | "product" | "description" | "done";
+  step: "language" | "description" | "timeDay" | "phone" | "done";
   language: "en" | "am";
   phone: string;
   timeDay: string;
-  product: string;
   description: string;
   issueCategory?: string;
 }
@@ -31,11 +30,10 @@ type LanguageKey = "en" | "am";
 const texts: Record<LanguageKey, Record<string, string>> = {
   en: {
     welcome:
-      "Welcome to RevoV Vending Machine Support! Please choose your language:",
-    askPhone: "Please share your phone number:",
-    askTimeDay: "What time and day did the issue happen? (e.g., Today at 3 PM)",
-    askProduct: "What did you try to buy? (e.g., Coca-Cola, Water)",
+      "Welcome to RevoV Vending Machine Support! Please choose your language / እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ:",
     askDescription: "Please describe the problem in detail:",
+    askTimeDay: "What time and day did the issue happen? (e.g., Today at 3 PM)",
+    askPhone: "Please share your phone number:",
     thanks: "Thank you! Your issue has been logged. Our team will review it.",
     instantFix_paymentFailed:
       "Your payment failed. Please try again or use another payment method.",
@@ -47,11 +45,11 @@ const texts: Record<LanguageKey, Record<string, string>> = {
       "✅ Your issue has been resolved. Thank you for using RevoV!",
   },
   am: {
-    welcome: "እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፦",
-    askPhone: "እባክዎ ስልክ ቁጥርዎን ያጋሩ፦",
-    askTimeDay: "ችግሩ የደረሰበት ቀን እና ሰዓት ምንድነው? (ለምሳሌ፦ ዛሬ ከሰዓት 3)፦",
-    askProduct: "ምን ለመግዛት ሞከሩ? (ለምሳሌ፦ ኮካ ኮላ፣ ውሃ)፦",
+    welcome:
+      "Welcome to RevoV Vending Machine Support! Please choose your language / እንኳን ወደ RevoV መሸጫ ማሽን ድጋፍ በደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ:",
     askDescription: "እባክዎ ችግሩን በዝርዝር ይግለጹ፦",
+    askTimeDay: "ችግሩ የደረሰበት ቀን እና ሰዓት ምንድነው? (ለምሳሌ፦ ዛሬ ከሰዓት 3)፦",
+    askPhone: "እባክዎ ስልክ ቁጥርዎን ያጋሩ፦",
     thanks: "እናመሰግናለን! ችግርዎ ተመዝግቧል። ቡድናችን ይገመግማል።",
     instantFix_paymentFailed:
       "ክፍያዎ አልተሳካም። እባክዎ እንደገና ይሞክሩ ወይም ሌላ የክፍያ ዘዴ ይጠቀሙ።",
@@ -62,8 +60,8 @@ const texts: Record<LanguageKey, Record<string, string>> = {
   },
 };
 
-// ---------- Issue classification ----------
-function classifyIssue(description: string, product: string): string {
+// ---------- Issue classification (product removed) ----------
+function classifyIssue(description: string): string {
   const lowerDesc = description.toLowerCase();
   if (
     lowerDesc.includes("payment") ||
@@ -105,7 +103,7 @@ function classifyIssue(description: string, product: string): string {
   return "other";
 }
 
-// ---------- Forward to support group ----------
+// ---------- Forward to support group (product removed) ----------
 async function forwardToSupportGroup(
   ctx: MyContext,
   category: string,
@@ -117,7 +115,6 @@ Time of report: ${new Date().toISOString()}
 User phone: ${ctx.session.phone}
 Issue day/time (user said): ${ctx.session.timeDay}
 Category: ${category}
-Product: ${ctx.session.product}
 Description: ${ctx.session.description}
 Instant fix given: ${instantFixGiven ? "yes" : "no"}
 Language: ${ctx.session.language === "en" ? "English" : "Amharic"}
@@ -140,7 +137,6 @@ bot.use(
       language: "en",
       phone: "",
       timeDay: "",
-      product: "",
       description: "",
     }),
   }),
@@ -163,12 +159,12 @@ bot.start(async (ctx) => {
 bot.action(/lang_(en|am)/, async (ctx) => {
   const lang = ctx.match[1] as "en" | "am";
   ctx.session.language = lang;
-  ctx.session.step = "phone";
+  ctx.session.step = "description";
   await ctx.answerCbQuery();
-  await ctx.reply(texts[lang].askPhone);
+  await ctx.reply(texts[lang].askDescription);
 });
 
-// Text handler
+// Text handler (new order: description → timeDay → phone → done)
 bot.on(message("text"), async (ctx) => {
   const step = ctx.session.step;
   const lang = ctx.session.language;
@@ -189,24 +185,19 @@ bot.on(message("text"), async (ctx) => {
   const input = ctx.message.text.trim();
 
   switch (step) {
-    case "phone":
-      ctx.session.phone = input;
+    case "description":
+      ctx.session.description = input;
       ctx.session.step = "timeDay";
       await ctx.reply(t.askTimeDay);
       break;
     case "timeDay":
       ctx.session.timeDay = input;
-      ctx.session.step = "product";
-      await ctx.reply(t.askProduct);
+      ctx.session.step = "phone";
+      await ctx.reply(t.askPhone);
       break;
-    case "product":
-      ctx.session.product = input;
-      ctx.session.step = "description";
-      await ctx.reply(t.askDescription);
-      break;
-    case "description":
-      ctx.session.description = input;
-      const category = classifyIssue(input, ctx.session.product);
+    case "phone":
+      ctx.session.phone = input;
+      const category = classifyIssue(ctx.session.description);
       let instantFixGiven = false;
       let replyText = "";
       if (category === "payment error") {
@@ -228,8 +219,8 @@ bot.on(message("text"), async (ctx) => {
       break;
     default:
       await ctx.reply(t.error);
-      ctx.session.step = "phone";
-      await ctx.reply(t.askPhone);
+      ctx.session.step = "description";
+      await ctx.reply(t.askDescription);
   }
 });
 
